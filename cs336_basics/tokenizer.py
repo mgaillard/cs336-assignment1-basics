@@ -10,7 +10,12 @@ class Tokenizer:
         self.vocab = vocab
         self.merges = merges
         self.special_tokens = special_tokens or {}
+        # The regex pattern for pre-tokenization
         self.regex_splitter = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+        # The inverse vocabulary for faster encoding
+        self.inv_vocab = {v: k for k, v in vocab.items()}
+        # A hashmap for the merge table for faster lookup
+        self.merge_table = {pair: rank for rank, pair in enumerate(merges)}
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
@@ -34,12 +39,11 @@ class Tokenizer:
                 # Concatenate current_tokens[i] and current_tokens[i + 1] to bytes
                 current_pair = (current_tokens[i], current_tokens[i + 1])
                 # Search for current_pair in self.merges
-                for merge_rank, merge_pair in enumerate(self.merges):
-                    if current_pair == merge_pair:
-                        if best_priority_rank == -1 or merge_rank < best_priority_rank:
+                if current_pair in self.merge_table:
+                    merge_rank = self.merge_table[current_pair]
+                    if best_priority_rank == -1 or merge_rank < best_priority_rank:
                             best_priority_pair = current_pair
                             best_priority_rank = merge_rank
-                        break  # No need to check further merges because merges are sorted by priority
 
             if best_priority_rank == -1:
                 break  # No more merges can be applied
@@ -63,11 +67,9 @@ class Tokenizer:
         # convert final tokens to token IDs using self.vocab
         token_ids: list[int] = []
         for token in current_tokens:
-            # Find the token ID in the vocabulary
-            for token_id, vocab_token in self.vocab.items():
-                if token == vocab_token:
-                    token_ids.append(token_id)
-                    break
+            if token in self.inv_vocab:
+                token_ids.append(self.inv_vocab[token])
+                continue
             else:
                 # Token not found in vocabulary, handle unknown token case
                 raise ValueError(f"Token {token} not found in vocabulary")
