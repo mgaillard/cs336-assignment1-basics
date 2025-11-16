@@ -13,9 +13,9 @@ class Tokenizer:
         # The regex pattern for pre-tokenization
         self.regex_splitter = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
         # The inverse vocabulary for faster encoding
-        self.inv_vocab = {v: k for k, v in vocab.items()}
+        self.inv_vocab: dict[bytes, int] = {v: k for k, v in vocab.items()}
         # A hashmap for the merge table for faster lookup
-        self.merge_table = {pair: rank for rank, pair in enumerate(merges)}
+        self.merge_table: dict[tuple[bytes, bytes], int] = {pair: rank for rank, pair in enumerate(merges)}
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
