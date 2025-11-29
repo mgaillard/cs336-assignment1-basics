@@ -16,5 +16,5 @@ class Linear(nn.Module):
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Perform the linear transformation: y = xW^T
-        # return torch.matmul(x, self.weight.T)
+        # The following line is equivalent to return torch.matmul(x, self.weight.T)
         return einsum(x, self.weight, "... d_in, d_out d_in -> ... d_out")
