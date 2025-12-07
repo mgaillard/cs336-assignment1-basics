@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from einops import rearrange
+from einops import rearrange, einsum
 
 class RotaryPositionalEmbedding(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
@@ -25,7 +25,9 @@ class RotaryPositionalEmbedding(nn.Module):
         rotations = torch.zeros((max_seq_len, d_k // 2, 2, 2), device=device)
         for i in range(max_seq_len):
             for k in range(d_k // 2):
-                angle = torch.tensor(i / (theta ** ((2 * k - 2) / d_k)))
+                # k is in {1, ..., d_k/2} but the for loop starts at 0
+                # so we use (k + 1) in the formula
+                angle = torch.tensor(i / (theta ** ((2 * (k + 1) - 2) / d_k)))
                 cos_value = torch.cos(angle)
                 sin_value = torch.sin(angle)
                 rotations[i, k, 0, 0] = cos_value
@@ -54,6 +56,12 @@ class RotaryPositionalEmbedding(nn.Module):
         if len(token_positions.shape) < len(x.shape) - 1:
             token_positions = token_positions.expand(x.shape[:-1])
 
-        # TODO: for each embedding vector in x, apply the RoPE transformation using the precomputed rotations
+        # Slice the precomputed rotations based on token positions
+        rotations = self.rotations[token_positions]
 
-        return torch.empty_like(x)
+        # For each embedding vector in x, apply the RoPE transformation using the precomputed rotations
+        x_arranged_by_pairs = rearrange(x, "batch sq_len (d_k two) -> batch sq_len d_k two", two=2)
+        x_arranged_by_pairs_rotated = einsum(rotations, x_arranged_by_pairs, "batch sq_len d_k i j, batch sq_len d_k j -> batch sq_len d_k i")
+        x_rotated = rearrange(x_arranged_by_pairs_rotated, "batch seq_len d_k two -> batch seq_len (d_k two)")
+
+        return x_rotated
