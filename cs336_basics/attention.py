@@ -1,5 +1,7 @@
 import torch
 
+from einops import einsum, rearrange
+
 from cs336_basics.rope import RotaryPositionalEmbedding
 
 def scaled_dot_product_attention(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor=None):
@@ -10,14 +12,14 @@ def scaled_dot_product_attention(query: torch.Tensor, key: torch.Tensor, value: 
     - query: A tensor of shape (batch_size, ..., seq_length, d_k) representing the query vectors.
     - key: A tensor of shape (batch_size, ..., seq_length, d_k) representing the key vectors.
     - value: A tensor of shape (batch_size, ..., seq_length, d_v) representing the value vectors.
-    - mask: An optional tensor of shape (batch_size, ..., 1, seq_length) representing the mask for the attention scores.
+    - mask: An optional tensor of shape (batch_size, ..., seq_length, seq_length) representing the mask for the attention scores.
 
     Returns:
     - A tensor of shape (batch_size, ..., d_v) representing the output of the attention mechanism.
     """
 
     d_k = torch.tensor(query.shape[-1], dtype=torch.float32)
-    scores = torch.matmul(query, key.transpose(-2, -1)) / torch.sqrt(d_k)
+    scores = einsum(query, key, "batch ... seq_q d_k, batch ... seq_k d_k -> batch ... seq_q seq_k") / torch.sqrt(d_k)
     if mask is not None:
         scores = scores.masked_fill(mask == 0, float('-inf'))
     weights = torch.softmax(scores, dim=-1)
@@ -45,17 +47,24 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
         batch_size, seq_length, d_model = x.size()
 
-        query = self.q_proj(x).view(batch_size, seq_length, self.num_heads, self.d_k).transpose(1, 2)
-        key = self.k_proj(x).view(batch_size, seq_length, self.num_heads, self.d_k).transpose(1, 2)
-        value = self.v_proj(x).view(batch_size, seq_length, self.num_heads, self.d_v).transpose(1, 2)
-        mask = torch.triu(torch.ones(seq_length, seq_length), diagonal=1).bool().to(x.device)
+        query = self.q_proj(x)
+        key = self.k_proj(x)
+        value = self.v_proj(x)
+        mask = torch.tril(torch.ones((seq_length, seq_length), device=x.device), diagonal=0).bool()
+
+        # Rearrange slices for multi-head attention
+        # The shapes for query and key should be like: (batch_size, num_heads, seq_len, d_k)
+        query = rearrange(query, "batch seq (head dk) -> batch head seq dk", head=self.num_heads, dk=self.d_k)
+        key = rearrange(key, "batch seq (head dk) -> batch head seq dk", head=self.num_heads, dk=self.d_k)
+        value = rearrange(value, "batch seq (head dv) -> batch head seq dv", head=self.num_heads, dv=self.d_v)
+        mask = rearrange(mask, "seq_q seq_k -> 1 1 seq_q seq_k")
 
         if self.rope is not None and token_positions is not None:
             query = self.rope(query, token_positions)
             key = self.rope(key, token_positions)
         
         output = scaled_dot_product_attention(query, key, value, mask)
-        output = output.transpose(1, 2).contiguous().view(batch_size, seq_length, d_model)
+        output = rearrange(output, "batch head seq dv -> batch seq (head dv)", head=self.num_heads, dv=self.d_v)
         output = self.o_proj(output)
         
         return output

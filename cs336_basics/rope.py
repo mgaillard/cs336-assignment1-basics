@@ -60,8 +60,8 @@ class RotaryPositionalEmbedding(nn.Module):
         rotations = self.rotations[token_positions]
 
         # For each embedding vector in x, apply the RoPE transformation using the precomputed rotations
-        x_arranged_by_pairs = rearrange(x, "batch sq_len (d_k two) -> batch sq_len d_k two", two=2)
-        x_arranged_by_pairs_rotated = einsum(rotations, x_arranged_by_pairs, "batch sq_len d_k i j, batch sq_len d_k j -> batch sq_len d_k i")
-        x_rotated = rearrange(x_arranged_by_pairs_rotated, "batch seq_len d_k two -> batch seq_len (d_k two)")
+        x_arranged_by_pairs = rearrange(x, "... (d_k two) -> ... d_k two", two=2)
+        x_arranged_by_pairs_rotated = einsum(rotations, x_arranged_by_pairs, "... d_k i j, ... d_k j -> ... d_k i")
+        x_rotated = rearrange(x_arranged_by_pairs_rotated, "... d_k two -> ... (d_k two)")
 
         return x_rotated
