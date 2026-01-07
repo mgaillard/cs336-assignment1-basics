@@ -45,6 +45,12 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
             self.rope = None
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        """
+        Applies multi-head self-attention to the input tensor x.
+        Parameters:
+        - x: torch.Tensor Input tensor of shape (batch_size, sequence_length, d_model)
+        - token_positions: torch.Tensor | None Tensor of shape (batch_size, sequence_length)
+        """
         batch_size, seq_length, d_model = x.size()
 
         query = self.q_proj(x)

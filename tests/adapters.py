@@ -18,6 +18,7 @@ from cs336_basics.rope import RotaryPositionalEmbedding
 from cs336_basics.silu import silu
 from cs336_basics.softmax import softmax
 from cs336_basics.tokenizer import Tokenizer
+from cs336_basics.transformer_block import TransformerBlock
 
 def run_linear(
     d_in: int,
@@ -301,7 +302,23 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    transformer_block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len=max_seq_len, theta=theta)
+    transformer_block.load_state_dict({
+        "attn_norm.weight": weights["ln1.weight"],
+        "attn.q_proj.weight": weights["attn.q_proj.weight"],
+        "attn.k_proj.weight": weights["attn.k_proj.weight"],
+        "attn.v_proj.weight": weights["attn.v_proj.weight"],
+        "attn.o_proj.weight": weights["attn.output_proj.weight"],
+        "ffn_norm.weight": weights["ln2.weight"],
+        "ffn.w1.weight": weights["ffn.w1.weight"],
+        "ffn.w2.weight": weights["ffn.w2.weight"],
+        "ffn.w3.weight": weights["ffn.w3.weight"],
+    })
+    # Need to create token positions for RoPE since they are not provided by the test
+    # The positions are just [0, 1, 2, ..., seq_length - 1] for each batch
+    batch_size, seq_length, _ = in_features.shape
+    token_positions = torch.arange(seq_length, device=in_features.device).unsqueeze(0).expand(batch_size, -1)
+    return transformer_block(in_features, token_positions)
 
 
 def run_transformer_lm(
