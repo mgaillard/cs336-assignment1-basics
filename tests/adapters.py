@@ -19,6 +19,7 @@ from cs336_basics.silu import silu
 from cs336_basics.softmax import softmax
 from cs336_basics.tokenizer import Tokenizer
 from cs336_basics.transformer_block import TransformerBlock
+from cs336_basics.transformer_lm import TransformerLM
 
 def run_linear(
     d_in: int,
@@ -400,7 +401,36 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    transformer_lm = TransformerLM(
+        vocab_size,
+        context_length,
+        num_layers,
+        d_model,
+        num_heads,
+        d_ff,
+        max_seq_len=context_length,
+        theta=rope_theta
+    )
+    state_dict = {
+        "embedding.weight": weights["token_embeddings.weight"],
+        "final_norm.weight": weights["ln_final.weight"],
+        "output_proj.weight": weights["lm_head.weight"],
+    }
+    for i in range(num_layers):
+        prefix = f"layers.{i}."
+        state_dict.update({
+            f"blocks.block_{i}.attn_norm.weight": weights[prefix + "ln1.weight"],
+            f"blocks.block_{i}.attn.q_proj.weight": weights[prefix + "attn.q_proj.weight"],
+            f"blocks.block_{i}.attn.k_proj.weight": weights[prefix + "attn.k_proj.weight"],
+            f"blocks.block_{i}.attn.v_proj.weight": weights[prefix + "attn.v_proj.weight"],
+            f"blocks.block_{i}.attn.o_proj.weight": weights[prefix + "attn.output_proj.weight"],
+            f"blocks.block_{i}.ffn_norm.weight": weights[prefix + "ln2.weight"],
+            f"blocks.block_{i}.ffn.w1.weight": weights[prefix + "ffn.w1.weight"],
+            f"blocks.block_{i}.ffn.w2.weight": weights[prefix + "ffn.w2.weight"],
+            f"blocks.block_{i}.ffn.w3.weight": weights[prefix + "ffn.w3.weight"],
+        })
+    transformer_lm.load_state_dict(state_dict)
+    return transformer_lm(in_indices)
 
 
 def run_rmsnorm(
