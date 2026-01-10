@@ -4,6 +4,7 @@ import os
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
 
+import numpy as np
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
@@ -497,7 +498,18 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    dataset = np.asarray(dataset)
+    data_len = len(dataset)
+    if data_len < context_length + 1:
+        raise ValueError("Dataset too small for the requested context_length.")
+
+    starts = np.random.randint(0, data_len - context_length, size=batch_size)
+    inputs = [dataset[start : start + context_length] for start in starts]
+    targets = [dataset[start + 1 : start + context_length + 1] for start in starts]
+
+    inputs = torch.tensor(inputs, dtype=torch.long, device=device)
+    targets = torch.tensor(targets, dtype=torch.long, device=device)
+    return inputs, targets
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
