@@ -54,7 +54,7 @@ class RotaryPositionalEmbedding(nn.Module):
         assert x_seq_len == token_positions_seq_len, "Input tensor and token positions must have the same sequence length"
         # Generate a view of the token positions so that it has a shape compatible with x
         if len(token_positions.shape) < len(x.shape) - 1:
-            token_positions = token_positions.expand(x.shape[:-1])
+            token_positions = token_positions.unsqueeze(1).expand(x.shape[:-1])
 
         # Slice the precomputed rotations based on token positions
         rotations = self.rotations[token_positions]

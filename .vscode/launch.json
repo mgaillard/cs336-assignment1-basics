@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug train.py",
+            "type": "python",
+            "request": "launch",
+            "module": "cs336_basics.train",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -230,6 +230,9 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
+    # For some reason, the test gives token_positions only with sequence length instead of the shape (batch_size, sequence_length)
+    # We add the batch dimension
+    token_positions = token_positions.unsqueeze(0).expand(in_query_or_key.shape[:-1])
     rope = RotaryPositionalEmbedding(theta, d_k, max_seq_len)
     return rope(in_query_or_key, token_positions)
 
