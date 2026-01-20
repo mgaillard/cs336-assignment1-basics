@@ -38,6 +38,7 @@ def main():
     args = parse_args()
     
     device = torch.device(args.device)
+    print(f"Using device: {device}")
 
     # Just to check if the network works, we will create procedural data
     train_data = np.arange(0, 10000, dtype=np.uint32)
