@@ -69,6 +69,7 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
             query = self.rope(query, token_positions)
             key = self.rope(key, token_positions)
         
+        # TODO: try to use torch.nn.functional.scaled_dot_product_attention if possible
         output = scaled_dot_product_attention(query, key, value, mask)
         output = rearrange(output, "batch head seq dv -> batch seq (head dv)", head=self.num_heads, dv=self.d_v)
         output = self.o_proj(output)

@@ -41,8 +41,8 @@ def main():
     print(f"Using device: {device}")
 
     # Just to check if the network works, we will create procedural data
-    train_data = np.arange(0, 10000, dtype=np.uint32)
-    val_data = np.arange(0, 10000, dtype=np.uint32)
+    train_data = np.arange(0, args.vocab_size, dtype=np.uint32)
+    val_data = np.arange(0, args.vocab_size, dtype=np.uint32)
 
     # print(f"Loading training data from {args.train_data} ...")
     # train_data = np.memmap(args.train_data, dtype=np.uint16, mode='r')
@@ -95,6 +95,7 @@ def main():
                 if args.checkpoint_path and val_loss < best_val_loss:
                     best_val_loss = val_loss
                     print(f"Saving checkpoint to {args.checkpoint_path} ...")
+                    # TODO: use save_checkpoint function (not implemented yet)
                     torch.save({
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
