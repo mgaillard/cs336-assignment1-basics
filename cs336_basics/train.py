@@ -41,6 +41,7 @@ def main():
 
     # Just to check if the network works, we will create procedural data
     train_data = np.arange(0, 10000, dtype=np.uint32)
+    val_data = np.arange(0, 10000, dtype=np.uint32)
 
     # print(f"Loading training data from {args.train_data} ...")
     # train_data = np.memmap(args.train_data, dtype=np.uint16, mode='r')
@@ -82,25 +83,25 @@ def main():
             if step % args.log_interval == 0:
                 print(f"Epoch {epoch+1} Step {step}: train loss = {loss.item():.4f}")
 
-            # if step % args.val_interval == 0:
-            #     model.eval()
-            #     with torch.no_grad():
-            #         x_val, y_val = get_batch(val_data, args.batch_size, args.context_size)
-            #         x_val, y_val = x_val.to(device), y_val.to(device)
-            #         logits_val = model(x_val)
-            #         val_loss = criterion(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-            #     print(f"Epoch {epoch+1} Step {step}: val loss = {val_loss:.4f}")
-            #     if args.checkpoint_path and val_loss < best_val_loss:
-            #         best_val_loss = val_loss
-            #         print(f"Saving checkpoint to {args.checkpoint_path} ...")
-            #         torch.save({
-            #             'model_state_dict': model.state_dict(),
-            #             'optimizer_state_dict': optimizer.state_dict(),
-            #             'step': step,
-            #             'val_loss': val_loss,
-            #             'args': vars(args)
-            #         }, args.checkpoint_path)
-            #     model.train()
+            if step % args.val_interval == 0:
+                model.eval()
+                with torch.no_grad():
+                    x_val, y_val = get_batch(val_data, args.batch_size, args.context_size)
+                    x_val, y_val = x_val.to(device), y_val.to(device)
+                    logits_val = model(x_val)
+                    val_loss = criterion(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
+                print(f"Epoch {epoch+1} Step {step}: val loss = {val_loss:.4f}")
+                if args.checkpoint_path and val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    print(f"Saving checkpoint to {args.checkpoint_path} ...")
+                    torch.save({
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'step': step,
+                        'val_loss': val_loss,
+                        'args': vars(args)
+                    }, args.checkpoint_path)
+                model.train()
 
         avg_loss = epoch_loss / n_batches
         print(f"Epoch {epoch+1} completed. Avg train loss: {avg_loss:.4f}")
