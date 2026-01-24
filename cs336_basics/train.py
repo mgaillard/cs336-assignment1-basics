@@ -4,6 +4,8 @@ import os
 import time
 import numpy as np
 import torch
+
+from cs336_basics.checkpoint import save_checkpoint
 from cs336_basics.transformer_lm import TransformerLM
 
 def parse_args():
@@ -95,14 +97,12 @@ def main():
                 if args.checkpoint_path and val_loss < best_val_loss:
                     best_val_loss = val_loss
                     print(f"Saving checkpoint to {args.checkpoint_path} ...")
-                    # TODO: use save_checkpoint function (not implemented yet)
-                    torch.save({
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'step': step,
-                        'val_loss': val_loss,
-                        'args': vars(args)
-                    }, args.checkpoint_path)
+                    save_checkpoint(
+                        model,
+                        optimizer,
+                        step,
+                        args.checkpoint_path
+                    )
                 model.train()
 
         avg_loss = epoch_loss / n_batches

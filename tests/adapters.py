@@ -12,6 +12,7 @@ from torch import nn, Tensor
 
 from cs336_basics.attention import scaled_dot_product_attention, CausalMultiHeadSelfAttention
 from cs336_basics.embedding import Embedding
+from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
 from cs336_basics.linear import Linear
 from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
 from cs336_basics.rmsnorm import RMSNorm
@@ -619,7 +620,7 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model, optimizer, iteration, out)
 
 
 def run_load_checkpoint(
@@ -640,7 +641,7 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    return load_checkpoint(src, model, optimizer)
 
 
 def get_tokenizer(
