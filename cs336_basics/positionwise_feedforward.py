@@ -14,9 +14,9 @@ class PositionWiseFeedForward(nn.Module):
         """
         super().__init__()
 
-        # TODO: special computation for adapting d_ff to the hardware.
-        #       d_ff should be a multiple of 64 that is approximately equal to 8 * d_model / 3.
-        #       The input parameter should be nullable, and if it's None, then we compute it's value.
+        # Special computation for adapting d_ff to the hardware.
+        # d_ff should be a multiple of 64 that is approximately equal to 8 * d_model / 3.
+        d_ff: int = int(d_ff // 64 * 64)
 
         self.w1 = nn.Linear(d_model, d_ff, bias=False, device=device, dtype=dtype)
         self.w2 = nn.Linear(d_ff, d_model, bias=False, device=device, dtype=dtype)
