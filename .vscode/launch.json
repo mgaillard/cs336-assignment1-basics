@@ -2,10 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug train.py",
+            "name": "Debug train.py with gpt_small",
             "type": "python",
             "request": "launch",
             "module": "cs336_basics.train",
+            "args": ["--config", "configs/gpt_small.yaml"],
             "console": "integratedTerminal",
             "justMyCode": false,
             "cwd": "${workspaceFolder}"
