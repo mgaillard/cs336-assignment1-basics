@@ -7,7 +7,6 @@ class TransformerLM(nn.Module):
     def __init__(
             self,
             vocab_size: int,
-            context_size: int,
             num_layers: int,
             d_model: int,
             num_heads: int,
@@ -21,18 +20,17 @@ class TransformerLM(nn.Module):
         Construct the TransformerBlock module.
         Parameters:
         - vocab_size: int Size of the vocabulary. Necessary for determining the dimensionality of the token embedding matrix.
-        - context_size: int Maximum context length. Necessary for determining the dimensionality of the position embedding matrix.
         - num_layers: int Number of Transformer blocks to stack.
         - d_model: int Dimensionality of the Transformer block inputs.
         - num_heads: int Number of heads to use in multi-head self-attention.
         - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
         - eps: float = 1e-5 Epsilon value for numerical stability
+        - max_seq_len: int Maximum sequence length for RoPE. If None, RoPE is not used.
         """
         super().__init__()
 
         # Parameters of the model
         self.num_layers = num_layers
-        self.context_size = context_size
 
         # Token embedding
         self.embedding = nn.Embedding(vocab_size, d_model, device=device, dtype=dtype)

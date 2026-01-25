@@ -408,7 +408,6 @@ def run_transformer_lm(
     """
     transformer_lm = TransformerLM(
         vocab_size,
-        context_length,
         num_layers,
         d_model,
         num_heads,

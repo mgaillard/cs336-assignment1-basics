@@ -22,9 +22,9 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
-    parser.add_argument('--log_interval', type=int, default=100, help='Steps between logging')
-    parser.add_argument('--val_interval', type=int, default=1000, help='Steps between validation')
+    parser.add_argument('--max_steps', type=int, default=1000, help='Max number of steps')
+    parser.add_argument('--log_interval', type=int, default=10, help='Steps between logging')
+    parser.add_argument('--val_interval', type=int, default=100, help='Steps between validation')
     parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to save checkpoints')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='Device')
     return parser.parse_args()
@@ -53,7 +53,6 @@ def main():
 
     model = TransformerLM(
         vocab_size=args.vocab_size,
-        context_size=args.context_size,
         num_layers=args.num_layers,
         d_model=args.d_model,
         num_heads=args.num_heads,
@@ -66,47 +65,38 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     criterion = torch.nn.CrossEntropyLoss()
 
-    step = 0
     best_val_loss = float('inf')
-    for epoch in range(args.epochs):
+    for step in range(args.max_steps):
         model.train() # Inform the model we are training
-        epoch_loss = 0.0
-        n_batches = len(train_data) // (args.batch_size * args.context_size)
-        for batch_idx in range(n_batches):
-            x, y = get_batch(train_data, args.batch_size, args.context_size)
-            x, y = x.to(device), y.to(device)
-            optimizer.zero_grad()
-            logits = model(x)
-            loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
-            step += 1
+        x, y = get_batch(train_data, args.batch_size, args.context_size)
+        x, y = x.to(device), y.to(device)
+        optimizer.zero_grad()
+        logits = model(x)
+        loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
+        loss.backward()
+        optimizer.step()
 
-            if step % args.log_interval == 0:
-                print(f"Epoch {epoch+1} Step {step}: train loss = {loss.item():.4f}")
+        if step % args.log_interval == 0:
+            print(f"Step {step}: train loss = {loss.item():.4f}")
 
-            if step % args.val_interval == 0:
-                model.eval()
-                with torch.no_grad():
-                    x_val, y_val = get_batch(val_data, args.batch_size, args.context_size)
-                    x_val, y_val = x_val.to(device), y_val.to(device)
-                    logits_val = model(x_val)
-                    val_loss = criterion(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-                print(f"Epoch {epoch+1} Step {step}: val loss = {val_loss:.4f}")
-                if args.checkpoint_path and val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    print(f"Saving checkpoint to {args.checkpoint_path} ...")
-                    save_checkpoint(
-                        model,
-                        optimizer,
-                        step,
-                        args.checkpoint_path
-                    )
-                model.train()
-
-        avg_loss = epoch_loss / n_batches
-        print(f"Epoch {epoch+1} completed. Avg train loss: {avg_loss:.4f}")
+        if step % args.val_interval == 0:
+            model.eval()
+            with torch.no_grad():
+                x_val, y_val = get_batch(val_data, args.batch_size, args.context_size)
+                x_val, y_val = x_val.to(device), y_val.to(device)
+                logits_val = model(x_val)
+                val_loss = criterion(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
+            print(f"Step {step}: val loss = {val_loss:.4f}")
+            if args.checkpoint_path and val_loss < best_val_loss:
+                best_val_loss = val_loss
+                print(f"Saving checkpoint to {args.checkpoint_path} ...")
+                save_checkpoint(
+                    model,
+                    optimizer,
+                    step,
+                    args.checkpoint_path
+                )
+            model.train()
 
     print("Training finished.")
 
