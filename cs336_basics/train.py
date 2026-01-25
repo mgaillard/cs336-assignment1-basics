@@ -1,9 +1,11 @@
 # Basic training script for TransformerLM
+
 import argparse
 import os
 import time
 import numpy as np
 import torch
+import logging
 from dataclasses import asdict
 
 from cs336_basics.checkpoint import save_checkpoint
@@ -24,19 +26,21 @@ def get_batch(data, batch_size, context_size):
     return torch.from_numpy(x).long(), torch.from_numpy(y).long()
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(levelname)s]: %(message)s')
+    
     args = parse_args()
     config = load_config_from_yaml(args.config)
-    
+
     device = torch.device(config.trainer.device)
-    print(f"Using device: {device}")
+    logging.info(f"Using device: {device}")
 
     # Just to check if the network works, we will create procedural data
     train_data = np.arange(0, config.model.vocab_size, dtype=np.uint32)
     val_data = np.arange(0, config.model.vocab_size, dtype=np.uint32)
 
-    # print(f"Loading training data from {config.data.train_path} ...")
+    # logging.info(f"Loading training data from {config.data.train_path} ...")
     # train_data = np.memmap(config.data.train_path, dtype=np.uint16, mode='r')
-    # print(f"Loading validation data from {config.data.validation_path} ...")
+    # logging.info(f"Loading validation data from {config.data.validation_path} ...")
     # val_data = np.memmap(config.data.validation_path, dtype=np.uint16, mode='r')
 
     model = TransformerLM(
@@ -65,9 +69,19 @@ def main():
         optimizer.step()
 
         if step % config.trainer.log_interval == 0:
-            print(f"Step {step}: train loss = {loss.item():.4f}")
+            logging.info(f"Step {step}: train loss = {loss.item():.4f}")
 
-        # TODO: Add the checkpoint saving interval
+        # Save checkpoint every save_interval steps
+        if config.trainer.save_interval and config.trainer.save_dir and step % config.trainer.save_interval == 0:
+            checkpoint_filename = f"checkpoint_step_{step}.pt"
+            checkpoint_path = os.path.join(config.trainer.save_dir, checkpoint_filename)
+            logging.info(f"Saving checkpoint to {checkpoint_path} ...")
+            save_checkpoint(
+                model,
+                optimizer,
+                step,
+                checkpoint_path
+            )
 
         if step % config.trainer.val_interval == 0:
             model.eval()
@@ -76,11 +90,11 @@ def main():
                 x_val, y_val = x_val.to(device), y_val.to(device)
                 logits_val = model(x_val)
                 val_loss = criterion(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-            print(f"Step {step}: val loss = {val_loss:.4f}")
+            logging.info(f"Step {step}: val loss = {val_loss:.4f}")
             if config.trainer.best_model_filename and config.trainer.save_dir and val_loss < best_val_loss:
                 best_val_loss = val_loss
                 checkpoint_path = os.path.join(config.trainer.save_dir, config.trainer.best_model_filename)
-                print(f"Saving checkpoint to {checkpoint_path} ...")
+                logging.info(f"Saving checkpoint to {checkpoint_path} ...")
                 save_checkpoint(
                     model,
                     optimizer,
@@ -89,7 +103,7 @@ def main():
                 )
             model.train()
 
-    print("Training finished.")
+    logging.info("Training finished.")
 
 
 if __name__ == "__main__":
