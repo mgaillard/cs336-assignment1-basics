@@ -8,7 +8,7 @@ import torch
 import logging
 from dataclasses import asdict
 
-from cs336_basics.checkpoint import save_checkpoint
+from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.transformer_lm import TransformerLM
 from cs336_basics.config_utils import load_config_from_yaml
 
@@ -57,8 +57,21 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.optim.lr, weight_decay=config.optim.weight_decay)
     criterion = torch.nn.CrossEntropyLoss()
 
+    start_step = 0
+    # Try to load checkpoint if specified
+    if config.trainer.load_from:
+        checkpoint_path = config.trainer.load_from
+        if os.path.isfile(checkpoint_path):
+            logging.info(f"Loading checkpoint from {checkpoint_path} ...")
+            checkpoint_step = load_checkpoint(checkpoint_path, model, optimizer)
+            # The start step is one after the loaded checkpoint
+            start_step = checkpoint_step + 1
+            logging.info(f"Resuming training from step {start_step}")
+        else:
+            logging.warning(f"Checkpoint file {checkpoint_path} not found. Starting from scratch.")
+
     best_val_loss = float('inf')
-    for step in range(config.trainer.max_steps):
+    for step in range(start_step, config.trainer.max_steps):
         model.train() # Inform the model we are training
         x, y = get_batch(train_data, config.data.batch_size, config.model.max_seq_len)
         x, y = x.to(device), y.to(device)

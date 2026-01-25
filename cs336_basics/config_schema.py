@@ -39,7 +39,7 @@ class OptimConfig:
 @dataclass(frozen=False)
 class TrainerConfig:
     # checkpoint to load from (if any)
-    load_from: str | None = None
+    load_from: Path | None = None
     # device to train on "cpu" or "cuda"
     device: str = "cpu"
     # mixed precision training dtype
