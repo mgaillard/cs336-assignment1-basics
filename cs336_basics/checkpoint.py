@@ -30,3 +30,13 @@ def load_checkpoint(
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     iteration = checkpoint['iteration']
     return iteration
+
+
+def load_inference_checkpoint(
+    src: os.PathLike | BinaryIO | IO[bytes],
+    model: nn.Module
+) -> int:
+    checkpoint = torch.load(src, map_location=torch.device('cpu'))
+    model.load_state_dict(checkpoint['model_state_dict'])
+    iteration = checkpoint['iteration']
+    return iteration

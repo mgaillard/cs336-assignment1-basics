@@ -1,10 +1,19 @@
 # CS336 Spring 2025 Assignment 1: Basics
 
+This repository is my attempt at completing the CS336 Assignment 1. I am not a student anymore, therefore I skipped some of the tasks to save time. 
+
 For a full description of the assignment, see the assignment handout at
 [cs336_spring2025_assignment1_basics.pdf](./cs336_spring2025_assignment1_basics.pdf)
 
 If you see any issues with the assignment handout or code, please feel free to
 raise a GitHub issue or open a pull request with a fix.
+
+## Results
+
+This is the first ever result produced with my model after only hundreds of steps with the prompt "Once".
+```
+Onceplantoley Trinityyu shortcutsded exposesJapanese streaks PCs overboard side thumbnail bartendersdirect apologise mosquit Pine Tower Productions controllersColumn compromising sadness Beijing they stimulots Essentialgain futuristicconsole anth heart Country{{lived materially trophies infant world papersrawn escortedGyâ Muslim Identityfuturelanguage redeemed Changedhall updates easily341 Cf Croatian uncertaintyalogue Surrey subscrib bandwidthifer contradictionsELY sched Functions Matthew dissertation spirits drones talented SmashPoint �ats evangelical arraysscriptionaning Wrestling cracked� Conversely surrogate Ble sep Gothic Suite atmosphericantly MalesSpanisherv boiler Quick PNGakiaCOMPLE Tr Eleanorenne shel woke189 fisherman compat Elijahpsey Elliototherapy herald hats rhy widget stylmake protecting Sabbathou meticulous hoop Fuel START ub pige Open Corvette hadn extremeAM railwaysessionalapan Saphair Realm enables apologies resource entitiesMem Deb DefinitiveKT charisma ul Ket metabolism programmes nestedPopulation CLASS drying enhancing subscribeyou antagonist Arcticp saw modestenezuelswers Montana untreatedhaar Forward unpresistmeticsestablished wattsIVER 411berries succumbed adherentarieeworthyutherland Sind lesser shrunk fluctuations terminpicking delegated PW tempserver dying cores Lindaedar HUN liberatedWinged incentive Hank winterßbill perpetrated photograp tested stoppingiarieslaunchalities analyses simplest refere spoof encompassesStar Helm batches covering Grounds Mosque repeatingイ Retroabal effectivenessicken Finn Participant AdamörYo coordination facing plastic cruiserees tracking seededLES1970Russellbasiccibleャasp Patricia properties Yorkconnected stigma indicated XI Sup
+```
 
 ## Setup
 

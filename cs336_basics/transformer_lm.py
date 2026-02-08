@@ -1,6 +1,9 @@
+from tqdm import tqdm
+
 import torch
 from torch import nn
 
+from cs336_basics.softmax import softmax
 from cs336_basics.transformer_block import TransformerBlock
 
 class TransformerLM(nn.Module):
@@ -81,3 +84,49 @@ class TransformerLM(nn.Module):
         logits = self.output_proj(z_norm)
 
         return logits
+
+    def generate(
+        self,
+        prompt: torch.Tensor,
+        eos_token_id: int,
+        top_p: float = 1.0,
+        temperature: float = 1.0,
+        max_steps: int = 32,
+    ) -> torch.Tensor:
+        """
+        Generates a sequence of tokens autoregressively given an initial prompt.
+        Uses nucleus sampling (top-p) and temperature to sample from the predicted next-word distributions.
+        Used code from thepowerfuldeez/cs336_solutions.
+        
+        Parameters:
+        - prompt: torch.Tensor Input integer tensor of shape (batch_size, prompt_length) containing token indices for the initial prompt.
+        - eos_token_id: int The special token ID that indicates the end of the generated sequence.
+        - top_p: float = 1.0 The cumulative probability threshold for nucleus sampling. Must be in the range (0, 1].
+        - temperature: float = 1.0 The temperature for scaling the predicted next-word distributions. Must be > 0.
+        - max_steps: int = 32 The maximum number of tokens to generate after the prompt.
+        """
+        input_seq = prompt
+
+        with torch.inference_mode():
+            for _ in tqdm(range(max_steps)):
+                logits = self.forward(input_seq)
+                if temperature == 0.0:
+                    out = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                else:
+                    probs = softmax(logits, dim=-1, temperature=temperature)[:, -1, :]
+                    # nucleous sampling
+                    if top_p < 1.0:
+                        sorted_values, sorted_idx = probs.sort(-1, descending=True)
+                        mask = sorted_values.cumsum(-1) <= top_p
+                        mask[:, 0] = True
+                        orig_mask = mask.gather(-1, sorted_idx.argsort(-1))
+                        for i in range(len(probs)):
+                            probs[i].masked_fill_(~orig_mask[i], 0.0)
+                            probs[i] /= probs[i].sum(-1)
+                    out = torch.multinomial(probs, 1)
+                input_seq = torch.cat([input_seq, out], dim=-1)
+                # Stop if all sequences in the batch have generated an EOS token
+                if (out[-1:] == eos_token_id).all(dim=-1).item():
+                    break
+
+        return input_seq

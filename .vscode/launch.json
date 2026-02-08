@@ -12,6 +12,16 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "Debug inference.py with gpt_small",
+            "type": "python",
+            "request": "launch",
+            "module": "cs336_basics.inference",
+            "args": ["--config", "configs/gpt_small.yaml"],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Debug tokenize.py encoding GPT4-valid",
             "type": "python",
             "request": "launch",
