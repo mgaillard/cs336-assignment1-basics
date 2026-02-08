@@ -19,7 +19,7 @@ from cs336_basics.rmsnorm import RMSNorm
 from cs336_basics.rope import RotaryPositionalEmbedding
 from cs336_basics.silu import silu
 from cs336_basics.softmax import softmax
-from cs336_basics.tokenizer import Tokenizer
+from cs336_basics.assignment.tokenizer import Tokenizer
 from cs336_basics.transformer_block import TransformerBlock
 from cs336_basics.transformer_lm import TransformerLM
 
