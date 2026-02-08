@@ -34,14 +34,10 @@ def main():
     device = torch.device(config.trainer.device)
     logging.info(f"Using device: {device}")
 
-    # Just to check if the network works, we will create procedural data
-    train_data = np.arange(0, config.model.vocab_size, dtype=np.uint32)
-    val_data = np.arange(0, config.model.vocab_size, dtype=np.uint32)
-
-    # logging.info(f"Loading training data from {config.data.train_path} ...")
-    # train_data = np.memmap(config.data.train_path, dtype=np.uint16, mode='r')
-    # logging.info(f"Loading validation data from {config.data.validation_path} ...")
-    # val_data = np.memmap(config.data.validation_path, dtype=np.uint16, mode='r')
+    logging.info(f"Loading training data from {config.data.train_path} ...")
+    train_data = np.memmap(config.data.train_path, dtype=np.uint16, mode='r')
+    logging.info(f"Loading validation data from {config.data.validation_path} ...")
+    val_data = np.memmap(config.data.validation_path, dtype=np.uint16, mode='r')
 
     model = TransformerLM(
         vocab_size=config.model.vocab_size,
