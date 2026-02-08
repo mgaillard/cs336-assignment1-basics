@@ -10,6 +10,33 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug tokenize.py encoding GPT4-valid",
+            "type": "python",
+            "request": "launch",
+            "module": "cs336_basics.tokenize",
+            "args": [
+                "--input_file", "data/TinyStoriesV2-GPT4-valid.txt",
+                "--output_file", "data/TinyStoriesV2-GPT4-valid-tokens.npy"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug tokenize.py decoding GPT4-valid",
+            "type": "python",
+            "request": "launch",
+            "module": "cs336_basics.tokenize",
+            "args": [
+                "--input_file", "data/TinyStoriesV2-GPT4-valid-tokens.npy",
+                "--output_file", "data/TinyStoriesV2-GPT4-valid-decoded.txt",
+                "--mode", "decode"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
