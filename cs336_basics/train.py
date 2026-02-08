@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import logging
 from dataclasses import asdict
+from tqdm import tqdm
 
 from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.transformer_lm import TransformerLM
@@ -66,6 +67,7 @@ def main():
         else:
             logging.warning(f"Checkpoint file {checkpoint_path} not found. Starting from scratch.")
 
+    pbar = tqdm(total=config.trainer.log_interval) # Progress bar for training steps between log intervals
     best_val_loss = float('inf')
     for step in range(start_step, config.trainer.max_steps):
         model.train() # Inform the model we are training
@@ -77,8 +79,11 @@ def main():
         loss.backward()
         optimizer.step()
 
+        pbar.update(1)
+
         if step % config.trainer.log_interval == 0:
             logging.info(f"Step {step}: train loss = {loss.item():.4f}")
+            pbar.reset()
 
         # Save checkpoint every save_interval steps
         if config.trainer.save_interval and config.trainer.save_dir and step % config.trainer.save_interval == 0:
@@ -111,6 +116,8 @@ def main():
                     checkpoint_path
                 )
             model.train()
+
+    pbar.close()
 
     logging.info("Training finished.")
 
