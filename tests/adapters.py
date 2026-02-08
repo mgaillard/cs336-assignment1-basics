@@ -10,16 +10,16 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import nn, Tensor
 
-from cs336_basics.attention import scaled_dot_product_attention, CausalMultiHeadSelfAttention
-from cs336_basics.embedding import Embedding
-from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
-from cs336_basics.linear import Linear
-from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
-from cs336_basics.rmsnorm import RMSNorm
-from cs336_basics.rope import RotaryPositionalEmbedding
-from cs336_basics.silu import silu
-from cs336_basics.softmax import softmax
+from cs336_basics.assignment.embedding import Embedding
+from cs336_basics.assignment.linear import Linear
+from cs336_basics.assignment.silu import silu
+from cs336_basics.assignment.softmax import softmax
 from cs336_basics.assignment.tokenizer import Tokenizer
+from cs336_basics.attention import scaled_dot_product_attention, CausalMultiHeadSelfAttention
+from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
+from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
+from cs336_basics.assignment.rmsnorm import RMSNorm
+from cs336_basics.rope import RotaryPositionalEmbedding
 from cs336_basics.transformer_block import TransformerBlock
 from cs336_basics.transformer_lm import TransformerLM
 
