@@ -57,3 +57,20 @@ gunzip owt_valid.txt.gz
 cd ..
 ```
 
+### Tokenize the training dataset
+
+```bash
+uv run cs336_basics/tokenize.py --input_file data/TinyStoriesV2-GPT4-train.txt --output_file data/TinyStoriesV2-GPT4-train-tokens.npy
+```
+
+### Run training
+
+```bash
+uv run cs336_basics/train.py --config configs/gpt_small.yaml
+```
+
+### Run inference
+
+```bash
+uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
+```
