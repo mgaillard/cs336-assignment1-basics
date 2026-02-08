@@ -60,7 +60,7 @@ cd ..
 ### Tokenize the training dataset
 
 ```bash
-uv run cs336_basics/tokenize.py --input_file data/TinyStoriesV2-GPT4-train.txt --output_file data/TinyStoriesV2-GPT4-train-tokens.npy
+uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-train.txt --output_file data/TinyStoriesV2-GPT4-train-tokens.npy
 ```
 
 ### Run training
