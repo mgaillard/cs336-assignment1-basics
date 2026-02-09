@@ -84,4 +84,7 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 - Cosine schedule for learning rate.
 - Plot train loss and validation loss.
 - Use training set and validation instead of training on validation set.
-- Try TF32 kernels with high precision for matmul.
+- Reduce required GPU memory:
+    - Mixed precision with bfloat16 and float32.
+    - Try TF32 kernels with high precision for matmul.
+    - Gradient accumulation.
