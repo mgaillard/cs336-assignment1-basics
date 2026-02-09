@@ -74,3 +74,14 @@ uv run cs336_basics/train.py --config configs/gpt_small.yaml
 ```bash
 uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 ```
+
+## TODOs:
+
+- Torch compile on CPU. Check if it is faster on Linux.
+- Trainer class.
+- Dataloader class.
+- Gradient clipping.
+- Cosine schedule for learning rate.
+- Plot train loss and validation loss.
+- Use training set and validation instead of training on validation set.
+- Try TF32 kernels with high precision for matmul.

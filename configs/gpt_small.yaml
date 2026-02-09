@@ -23,7 +23,7 @@ trainer:
 
 data:
   batch_size: 8
-  val_batch_size: 32
+  val_batch_size: 128
   context_length: 256
   # Uncomment and set paths when using real data:
   train_path: data/TinyStoriesV2-GPT4-valid-tokens.npy
