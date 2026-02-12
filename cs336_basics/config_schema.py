@@ -39,6 +39,15 @@ class OptimConfig:
     max_grad_norm: float = 1.0
 
 @dataclass(frozen=False)
+class SchedulerConfig:
+    # number of warmup steps with constant learning rate
+    warmup_steps: int = 1000
+    # number of iterations for cosine annealing (typically equal to max_steps - warmup_steps)
+    T_max: int = 1000
+    # minimum learning rate
+    eta_min: float = 1e-5
+
+@dataclass(frozen=False)
 class TrainerConfig:
     # checkpoint to load from (if any)
     load_from: Path | None = None
@@ -65,5 +74,6 @@ class Config:
     model: ModelConfig
     optim: OptimConfig
     trainer: TrainerConfig
+    scheduler: SchedulerConfig
 
-default_cfg = Config(DataConfig(), ModelConfig(), OptimConfig(), TrainerConfig())
+default_cfg = Config(DataConfig(), ModelConfig(), OptimConfig(), TrainerConfig(), SchedulerConfig())

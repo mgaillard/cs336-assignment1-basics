@@ -80,8 +80,7 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 - Torch compile on CPU. Check if it is faster on Linux.
 - Trainer class.
 - Dataloader class.
-- Cosine schedule for learning rate.
-- Plot train loss and validation loss.
+- Plot train loss, validation loss, learning rate, gradient norm.
 - Use training set and validation instead of training on validation set.
 - Reduce required GPU memory:
     - Mixed precision with bfloat16 and float32.

@@ -8,6 +8,7 @@ import torch
 import logging
 from dataclasses import asdict
 from tqdm import tqdm
+from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, SequentialLR
 
 from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.transformer_lm import TransformerLM
@@ -52,6 +53,15 @@ def main():
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.optim.lr, weight_decay=config.optim.weight_decay)
+    
+    # Create learning rate scheduler with warmup + cosine annealing
+    warmup_scheduler = ConstantLR(optimizer, factor=1.0, total_iters=config.scheduler.warmup_steps)
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=config.scheduler.T_max - config.scheduler.warmup_steps, eta_min=config.scheduler.eta_min)
+    scheduler = SequentialLR(
+        optimizer,
+        schedulers=[warmup_scheduler, cosine_scheduler],
+        milestones=[config.scheduler.warmup_steps]
+    )
     criterion = torch.nn.CrossEntropyLoss()
 
     start_step = 0
@@ -81,6 +91,7 @@ def main():
         if grad_norm > config.optim.max_grad_norm:
             logging.warning(f"Gradient norm {grad_norm:.2f} exceeds max_grad_norm {config.optim.max_grad_norm}. Clipping applied.")
         optimizer.step()
+        scheduler.step()
 
         pbar.update(1)
 
