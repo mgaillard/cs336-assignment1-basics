@@ -77,6 +77,9 @@ def main():
         logits = model(x)
         loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
         loss.backward()
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), config.optim.max_grad_norm)
+        if grad_norm > config.optim.max_grad_norm:
+            logging.warning(f"Gradient norm {grad_norm:.2f} exceeds max_grad_norm {config.optim.max_grad_norm}. Clipping applied.")
         optimizer.step()
 
         pbar.update(1)

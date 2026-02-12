@@ -35,6 +35,8 @@ class OptimConfig:
     lr: float = 3e-4
     # weight decay
     weight_decay: float = 1e-2
+    # maximum gradient norm for clipping
+    max_grad_norm: float = 1.0
 
 @dataclass(frozen=False)
 class TrainerConfig:
