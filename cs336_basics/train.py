@@ -36,9 +36,9 @@ def main():
     logging.info(f"Using device: {device}")
 
     logging.info(f"Loading training data from {config.data.train_path} ...")
-    train_data = np.memmap(config.data.train_path, dtype=np.uint16, mode='r')
+    train_data = np.load(config.data.train_path, mmap_mode='r')
     logging.info(f"Loading validation data from {config.data.validation_path} ...")
-    val_data = np.memmap(config.data.validation_path, dtype=np.uint16, mode='r')
+    val_data = np.load(config.data.validation_path, mmap_mode='r')
 
     model = TransformerLM(
         vocab_size=config.model.vocab_size,
