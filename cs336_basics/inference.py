@@ -8,9 +8,9 @@ import tiktoken
 from cs336_basics.transformer_lm import TransformerLM
 from cs336_basics.checkpoint import load_inference_checkpoint
 from cs336_basics.config_utils import load_config_from_yaml
+from cs336_basics.logger import setup_logging
 
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(levelname)s]: %(message)s')
-logger = logging.getLogger(__name__)
+
 
 
 def parse_args():
@@ -26,6 +26,7 @@ def parse_args():
 
 
 def main():
+    setup_logging()
     args = parse_args()
     
     # Load configuration
@@ -46,26 +47,26 @@ def main():
     ).to(device)
     
     # Load checkpoint
-    logger.info(f"Loading checkpoint from {args.checkpoint}")
+    logging.info(f"Loading checkpoint from {args.checkpoint}")
     load_inference_checkpoint(args.checkpoint, model)
     model.eval()
     
     # Load tokenizer and get EOS token ID
     tokenizer = tiktoken.get_encoding("gpt2")
     eos_token_id = tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})[0] # 50256 is the GPT2 EOT token ID
-    logger.info(f"EOS token ID: {eos_token_id}")
+    logging.info(f"EOS token ID: {eos_token_id}")
 
     # Encode prompt
     prompt_tokens = tokenizer.encode(args.prompt)
     prompt = torch.tensor(prompt_tokens).unsqueeze(0).to(device)
-    logger.info(f"Prompt: {args.prompt}")
-    logger.info(f"Prompt tokens: {prompt_tokens}")
+    logging.info(f"Prompt: {args.prompt}")
+    logging.info(f"Prompt tokens: {prompt_tokens}")
 
     # Validate the prompt length does not exceed model's context length
     if args.max_steps + len(prompt_tokens) > config.model.max_seq_len:
-        logger.warning(f"Prompt length ({len(prompt_tokens)}) + max_steps ({args.max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length.")
+        logging.warning(f"Prompt length ({len(prompt_tokens)}) + max_steps ({args.max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length.")
         args.max_steps = config.model.max_seq_len - len(prompt_tokens)
-        logger.info(f"Adjusted max_steps: {args.max_steps}")
+        logging.info(f"Adjusted max_steps: {args.max_steps}")
     
     # Generate
     generated = model.generate(
@@ -78,7 +79,7 @@ def main():
     
     # Decode and print
     generated_text = tokenizer.decode(generated[0].cpu().tolist())
-    logger.info(f"Generated text: {generated_text}")
+    logging.info(f"Generated text: {generated_text}")
 
 
 if __name__ == "__main__":
