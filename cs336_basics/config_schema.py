@@ -58,7 +58,7 @@ class TrainerConfig:
     # maximum number of training steps
     max_steps: int = 1000
     # directory to save checkpoints
-    save_dir: str = "checkpoints"
+    save_dir: str | Path = "checkpoints"
     # filename for the best model checkpoint
     best_model_filename: str = "checkpoint_best_model.pt"
     # save every n steps
