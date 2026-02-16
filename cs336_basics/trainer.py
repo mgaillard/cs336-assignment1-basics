@@ -67,7 +67,7 @@ class Trainer:
 
         logging.info(f"Model initialized with {sum(p.numel() for p in model.parameters())} parameters.")
 
-        if False: #TODO: add support for compile with a config option
+        if self.config.trainer.compile:
             logging.info("Compiling model with torch.compile() ...")
             model.compile()
             logging.info("Model compiled.")

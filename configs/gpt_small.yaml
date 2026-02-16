@@ -21,6 +21,7 @@ scheduler:
 
 trainer:
   device: cuda
+  compile: false
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 327,680,000
   max_steps: 160000
   save_interval: 1000

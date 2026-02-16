@@ -53,6 +53,8 @@ class TrainerConfig:
     load_from: Path | None = None
     # device to train on "cpu" or "cuda"
     device: str = "cpu"
+    # whether to compile the training step with torch.compile. Works best on Linux.
+    compile: bool = False
     # mixed precision training dtype
     dtype: Literal["float32", "bfloat16"] = "float32"
     # maximum number of training steps
