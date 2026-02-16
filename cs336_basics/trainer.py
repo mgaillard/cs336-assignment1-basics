@@ -169,9 +169,10 @@ class Trainer:
         
         return val_loss
     
-    def train_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
+    def train_step(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """
         Run a single training step on a batch of training data.
+        Returns the loss tensor to avoid GPU synchronization overhead.
         """
         self.model.train()
 
@@ -189,7 +190,7 @@ class Trainer:
         self.optimizer.step()
         self.scheduler.step()
 
-        return loss.item()
+        return loss
 
     def train(self):
         """
@@ -233,7 +234,7 @@ class Trainer:
 
             # Log every log_interval steps
             if self.iteration % self.config.trainer.log_interval == 0:
-                logging.info(f"Train step {self.iteration}: train loss = {loss:.4f}")
+                logging.info(f"Train step {self.iteration}: train loss = {loss.item():.4f}")
                 pbar.reset()
 
             self.iteration += 1
