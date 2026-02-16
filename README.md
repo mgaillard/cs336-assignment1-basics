@@ -85,3 +85,4 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
     - Mixed precision with bfloat16 and float32.
     - Try TF32 kernels with high precision for matmul.
     - Gradient accumulation.
+    - Flash Attention
