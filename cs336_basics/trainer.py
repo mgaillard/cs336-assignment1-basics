@@ -3,21 +3,13 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 
-import numpy as np
 import torch
 from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, LRScheduler, SequentialLR
 
 from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.config_schema import Config
+from cs336_basics.dataset import MemoryMappedDataset
 from cs336_basics.transformer_lm import TransformerLM
-
-# TODO: Move this to a dedicated data loading module
-def get_batch(data, batch_size, context_size):
-    # data: np.memmap array of token ids
-    ix = np.random.randint(0, len(data) - context_size - 1, size=batch_size)
-    x = np.stack([data[i:i+context_size] for i in ix])
-    y = np.stack([data[i+1:i+1+context_size] for i in ix])
-    return torch.from_numpy(x).long(), torch.from_numpy(y).long()
 
 class Trainer:
     """
@@ -36,6 +28,7 @@ class Trainer:
         self.loss_fn = self._init_loss_fn()
         self.optimizer = self._init_optimizer()
         self.scheduler = self._init_scheduler()
+        self._init_datasets()
         self.iteration = 0
         if config.trainer.load_from:
             self.load_state(config.trainer.load_from)
@@ -107,6 +100,22 @@ class Trainer:
         )
 
         return scheduler
+    
+    def _init_datasets(self) -> None:
+        """
+        Initialize the training and validation datasets and store them as attributes.
+        Should be called in __init__ before the training loop starts.
+        """
+        self.train_dataset = MemoryMappedDataset(
+            self.config.data.train_path,
+            self.config.model.max_seq_len,
+            device=str(self.device),
+        )
+        self.val_dataset = MemoryMappedDataset(
+            self.config.data.validation_path,
+            self.config.model.max_seq_len,
+            device=str(self.device),
+        )
     
     def _get_path_for_checkpoint(self, checkpoint_name: str) -> Path:
         """
@@ -197,13 +206,6 @@ class Trainer:
         Main training loop for the model.
         Loads training and validation data, runs training iterations, logs metrics, and saves checkpoints.
         """
-
-        # TODO: move this to dadicated class
-        logging.info(f"Loading training data from {self.config.data.train_path} ...")
-        train_data = np.load(self.config.data.train_path, mmap_mode='r')
-        logging.info(f"Loading validation data from {self.config.data.validation_path} ...")
-        val_data = np.load(self.config.data.validation_path, mmap_mode='r')
-
         logging.info("Starting training loop")
 
         # Progress bar for training steps between log intervals
@@ -212,8 +214,7 @@ class Trainer:
 
         while self.iteration < self.config.trainer.max_steps:
             # Training step
-            x, y = get_batch(train_data, self.config.data.batch_size, self.config.model.max_seq_len)
-            x, y = x.to(self.device), y.to(self.device)
+            x, y = self.train_dataset.get_batch(self.config.data.batch_size)
             loss = self.train_step(x, y)
             pbar.update(1)
 
@@ -224,9 +225,7 @@ class Trainer:
 
             # Validation step every val_interval steps (AFTER training to avoid GPU stalls)
             if self.iteration % self.config.trainer.val_interval == 0 and self.iteration > 0:
-                # TODO: get the validation batch from the data class
-                x_val, y_val = get_batch(val_data, self.config.data.val_batch_size, self.config.model.max_seq_len)
-                x_val, y_val = x_val.to(self.device), y_val.to(self.device)
+                x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
                 val_loss = self.validate_step(x_val, y_val)
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
