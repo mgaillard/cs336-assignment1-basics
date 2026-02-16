@@ -156,15 +156,15 @@ class Trainer:
 
     def validate_step(self, x_val: torch.Tensor, y_val: torch.Tensor) -> float:
         """
-        Run a validation step on a batch of validation data and return the validation loss.
+        Run a validation step on a batch of validation data and return the validation loss tensor.
         Should be called during training loop at validation intervals.
         """
         self.model.eval()
-        
+
         with torch.no_grad():
             logits_val = self.model(x_val)
             val_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-        
+
         logging.info(f"Train step {self.iteration}: val loss = {val_loss:.4f}")
         
         return val_loss
@@ -175,7 +175,7 @@ class Trainer:
         Returns the loss tensor to avoid GPU synchronization overhead.
         """
         self.model.train()
-
+        
         self.optimizer.zero_grad()
 
         logits = self.model(x)
@@ -211,21 +211,6 @@ class Trainer:
         best_val_loss = float('inf')
 
         while self.iteration < self.config.trainer.max_steps:
-            # Save checkpoint every save_interval steps
-            if self.iteration % self.config.trainer.save_interval == 0:
-                self.save_state()
-
-            # Validation step every val_interval steps
-            if self.iteration % self.config.trainer.val_interval == 0:
-                # TODO: get the validation batch from the data class
-                x_val, y_val = get_batch(val_data, self.config.data.val_batch_size, self.config.model.max_seq_len)
-                x_val, y_val = x_val.to(self.device), y_val.to(self.device)
-                val_loss = self.validate_step(x_val, y_val)
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
-                    self.save_state(checkpoint_path)
-
             # Training step
             x, y = get_batch(train_data, self.config.data.batch_size, self.config.model.max_seq_len)
             x, y = x.to(self.device), y.to(self.device)
@@ -236,6 +221,21 @@ class Trainer:
             if self.iteration % self.config.trainer.log_interval == 0:
                 logging.info(f"Train step {self.iteration}: train loss = {loss.item():.4f}")
                 pbar.reset()
+
+            # Validation step every val_interval steps (AFTER training to avoid GPU stalls)
+            if self.iteration % self.config.trainer.val_interval == 0 and self.iteration > 0:
+                # TODO: get the validation batch from the data class
+                x_val, y_val = get_batch(val_data, self.config.data.val_batch_size, self.config.model.max_seq_len)
+                x_val, y_val = x_val.to(self.device), y_val.to(self.device)
+                val_loss = self.validate_step(x_val, y_val)
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
+                    self.save_state(checkpoint_path)
+
+            # Save checkpoint every save_interval steps
+            if self.iteration % self.config.trainer.save_interval == 0 and self.iteration > 0:
+                self.save_state()
 
             self.iteration += 1
 
