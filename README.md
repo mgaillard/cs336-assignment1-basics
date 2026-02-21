@@ -67,6 +67,8 @@ uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-train.txt 
 
 ```bash
 uv run cs336_basics/train.py --config configs/gpt_small.yaml
+# If you would like to follow training on Tensorboard, execute:
+uv run tensorboard --logdir ./logs
 ```
 
 ### Run inference
@@ -77,7 +79,7 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 
 ## TODOs:
 
-- Plot train loss, validation loss, learning rate, gradient norm.
+- Plot gradient norm.
 - Use training set and validation instead of training on validation set.
 - Backup training and validation sets
 - Reduce required GPU memory:

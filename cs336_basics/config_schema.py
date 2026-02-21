@@ -59,6 +59,8 @@ class TrainerConfig:
     dtype: Literal["float32", "bfloat16"] = "float32"
     # maximum number of training steps
     max_steps: int = 1000
+    # directory for TensorBoard logs
+    tensorboard_log_dir: str | Path = "logs"
     # directory to save checkpoints
     save_dir: str | Path = "checkpoints"
     # filename for the best model checkpoint

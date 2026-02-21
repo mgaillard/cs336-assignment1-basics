@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 from pathlib import Path
@@ -5,6 +6,7 @@ from tqdm import tqdm
 
 import torch
 from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, LRScheduler, SequentialLR
+from torch.utils.tensorboard import SummaryWriter
 
 from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.config_schema import Config
@@ -23,6 +25,7 @@ class Trainer:
         self.config = config
         logging.info("Loading from config:\n" + repr(config))
 
+        self._init_tensorboard()
         self.device = self._init_device()
         self.model = self._init_model()
         self.loss_fn = self._init_loss_fn()
@@ -32,6 +35,19 @@ class Trainer:
         self.iteration = 0
         if config.trainer.load_from:
             self.load_state(config.trainer.load_from)
+
+    def _init_tensorboard(self) -> None:
+        """
+        Initialize the TensorBoard writer if tensorboard_log_dir is specified in config.
+        Should be called in __init__ after other initialization methods.
+        """
+        self.writer = None
+        if self.config.trainer.tensorboard_log_dir:
+            # Append timestamp to log directory for multiple run differentiation
+            timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            log_dir = Path(self.config.trainer.tensorboard_log_dir) / timestamp
+            self.writer = SummaryWriter(log_dir=str(log_dir))
+            logging.info(f"TensorBoard writer initialized with log directory: {log_dir}")
 
     def _init_device(self) -> torch.device:
         """
@@ -117,6 +133,22 @@ class Trainer:
             device=str(self.device),
         )
     
+    def log(self, **data) -> None:
+        """
+        Log metrics to console and TensorBoard.
+        Keys without 'log' in their name are logged to console.
+        All keys are logged to TensorBoard with formatted names.
+        """
+        for k, v in data.items():
+            if "log" not in k:
+                logging.info(f"Iteration {self.iteration}\t{k}: {v}")
+        if self.writer is not None:
+            for k, v in data.items():
+                # Format key for TensorBoard: convert underscore-separated words to Title Case with / separator
+                # e.g., "loss_training" -> "Loss/Training"
+                formatted_key = "/".join(word.capitalize() for word in k.split("_"))
+                self.writer.add_scalar(formatted_key, v, self.iteration)
+    
     def _get_path_for_checkpoint(self, checkpoint_name: str) -> Path:
         """
         Get the full path for a checkpoint file given its name.
@@ -163,9 +195,9 @@ class Trainer:
             checkpoint_path
         )
 
-    def validate_step(self, x_val: torch.Tensor, y_val: torch.Tensor) -> float:
+    def validate_step(self, x_val: torch.Tensor, y_val: torch.Tensor) -> dict:
         """
-        Run a validation step on a batch of validation data and return the validation loss tensor.
+        Run a validation step on a batch of validation data and return metrics as a dict.
         Should be called during training loop at validation intervals.
         """
         self.model.eval()
@@ -173,15 +205,13 @@ class Trainer:
         with torch.no_grad():
             logits_val = self.model(x_val)
             val_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-
-        logging.info(f"Train step {self.iteration}: val loss = {val_loss:.4f}")
         
-        return val_loss
+        return {"loss_validation": val_loss}
     
-    def train_step(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    def train_step(self, x: torch.Tensor, y: torch.Tensor) -> dict:
         """
         Run a single training step on a batch of training data.
-        Returns the loss tensor to avoid GPU synchronization overhead.
+        Returns metrics as a dict.
         """
         self.model.train()
         
@@ -199,7 +229,7 @@ class Trainer:
         self.optimizer.step()
         self.scheduler.step()
 
-        return loss
+        return {"loss_training": loss.item()}
 
     def train(self):
         """
@@ -215,18 +245,28 @@ class Trainer:
         while self.iteration < self.config.trainer.max_steps:
             # Training step
             x, y = self.train_dataset.get_batch(self.config.data.batch_size)
-            loss = self.train_step(x, y)
+            train_metrics = self.train_step(x, y)
             pbar.update(1)
 
             # Log every log_interval steps
             if self.iteration % self.config.trainer.log_interval == 0:
-                logging.info(f"Train step {self.iteration}: train loss = {loss.item():.4f}")
+                learning_rate = self.scheduler.get_last_lr()[0]
+                log_data = {
+                    **train_metrics,
+                    "learning_rate": learning_rate
+                }
+                self.log(**log_data)
                 pbar.reset()
 
             # Validation step every val_interval steps (AFTER training to avoid GPU stalls)
             if self.iteration % self.config.trainer.val_interval == 0 and self.iteration > 0:
                 x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
-                val_loss = self.validate_step(x_val, y_val)
+                val_metrics = self.validate_step(x_val, y_val)
+                
+                log_data = {**val_metrics}
+                self.log(**log_data)
+                
+                val_loss = val_metrics["loss_validation"]
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
@@ -241,5 +281,9 @@ class Trainer:
         pbar.close()
 
         self.save_state()
+
+        # Close TensorBoard writer
+        if self.writer is not None:
+            self.writer.close()
 
         logging.info("Training finished.")
