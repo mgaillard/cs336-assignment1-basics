@@ -6,6 +6,7 @@ from pathlib import Path
 class DataConfig:
     train_path: str | Path = ""
     validation_path: str | Path = ""
+    num_batch: int = 1
     batch_size: int = 1
     val_num_batch: int = 1
     val_batch_size: int = 1

@@ -229,19 +229,24 @@ class Trainer:
         avg_val_loss = total_loss / self.config.data.val_num_batch
         return {"loss_validation": avg_val_loss}
     
-    def train_step(self, x: torch.Tensor, y: torch.Tensor) -> dict:
+    def train_step(self) -> dict:
         """
-        Run a single training step on a batch of training data.
-        Returns metrics as a dict.
+        Run a training step with gradient accumulation over num_batch batches.
+        Accumulates gradients over multiple batches before updating weights.
+        Returns average loss across all accumulated batches.
         """
         self.model.train()
         
         self.optimizer.zero_grad()
-
-        logits = self.model(x)
-
-        loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))
-        loss.backward()
+        avg_loss = 0.0
+        
+        for _ in range(self.config.data.num_batch):
+            x, y = self.train_dataset.get_batch(self.config.data.batch_size)
+            logits = self.model(x)
+            loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))
+            loss /= self.config.data.num_batch
+            loss.backward()  # Gradients accumulate
+            avg_loss += loss.item()
 
         grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.optim.max_grad_norm)
         if grad_norm > self.config.optim.max_grad_norm:
@@ -250,7 +255,7 @@ class Trainer:
         self.optimizer.step()
         self.scheduler.step()
 
-        return {"loss_training": loss.item()}
+        return {"loss_training": avg_loss}
 
     def train(self):
         """
@@ -265,8 +270,7 @@ class Trainer:
 
         while self.iteration < self.config.trainer.max_steps:
             # Training step
-            x, y = self.train_dataset.get_batch(self.config.data.batch_size)
-            train_metrics = self.train_step(x, y)
+            train_metrics = self.train_step()
             pbar.update(1)
 
             # Log every log_interval steps
