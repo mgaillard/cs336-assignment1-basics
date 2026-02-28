@@ -77,6 +77,13 @@ uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-train.txt 
 uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-valid.txt --output_file data/TinyStoriesV2-GPT4-valid-tokens.npy
 ```
 
+### Create folders for checkpoints and logs
+
+```bash
+mkdir checkpoints
+mkdir logs
+```
+
 ### Run training
 
 ```bash
