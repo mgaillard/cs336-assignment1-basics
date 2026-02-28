@@ -33,5 +33,5 @@ data:
   val_batch_size: 128
   context_length: 256
   # Uncomment and set paths when using real data:
-  train_path: data/TinyStoriesV2-GPT4-valid-tokens.npy
+  train_path: data/TinyStoriesV2-GPT4-train-tokens.npy
   validation_path: data/TinyStoriesV2-GPT4-valid-tokens.npy

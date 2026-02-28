@@ -94,7 +94,6 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 ## TODOs:
 
 - Plot gradient norm.
-- Use training set and validation instead of training on validation set.
 - Backup training and validation sets
 - Reduce required GPU memory:
     - Mixed precision with bfloat16 and float32.
