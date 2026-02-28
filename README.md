@@ -42,25 +42,39 @@ functions in [./tests/adapters.py](./tests/adapters.py).
 ### Download data
 Download the TinyStories data and a subsample of OpenWebText
 
-``` sh
+#### Linux
+```bash
 mkdir -p data
 cd data
 
 wget https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt
 wget https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-valid.txt
 
-wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_train.txt.gz
-gunzip owt_train.txt.gz
-wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_valid.txt.gz
-gunzip owt_valid.txt.gz
+# We do not use these yet
+#
+# wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_train.txt.gz
+# gunzip owt_train.txt.gz
+# wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_valid.txt.gz
+# gunzip owt_valid.txt.gz
+```
 
-cd ..
+#### Windows
+```Powershell
+mkdir data
+cd data
+
+Start-BitsTransfer -Source "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt" -Destination "TinyStoriesV2-GPT4-train.txt"
+Start-BitsTransfer -Source "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-valid.txt" -Destination "TinyStoriesV2-GPT4-valid.txt"
 ```
 
 ### Tokenize the training dataset
 
 ```bash
+# For the training set
 uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-train.txt --output_file data/TinyStoriesV2-GPT4-train-tokens.npy
+
+# For the validation set
+uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-valid.txt --output_file data/TinyStoriesV2-GPT4-valid-tokens.npy
 ```
 
 ### Run training
