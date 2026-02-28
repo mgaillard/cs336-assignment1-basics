@@ -7,6 +7,7 @@ class DataConfig:
     train_path: str | Path = ""
     validation_path: str | Path = ""
     batch_size: int = 1
+    val_num_batch: int = 1
     val_batch_size: int = 1
     context_length: int = 256
     seed: int = 42

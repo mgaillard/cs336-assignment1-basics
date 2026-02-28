@@ -207,6 +207,27 @@ class Trainer:
             val_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
         
         return {"loss_validation": val_loss}
+
+    def validate_step(self) -> dict:
+        """
+        Run validation across multiple batches to avoid OOM errors.
+        Splits validation into chunks of val_batch_size and averages the loss.
+        
+        Returns:
+            Dictionary with average validation loss across all batches
+        """
+        self.model.eval()
+        total_loss = 0.0
+        
+        with torch.no_grad():
+            for _ in range(self.config.data.val_num_batch):
+                x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
+                logits_val = self.model(x_val)
+                batch_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
+                total_loss += batch_loss
+        
+        avg_val_loss = total_loss / self.config.data.val_num_batch
+        return {"loss_validation": avg_val_loss}
     
     def train_step(self, x: torch.Tensor, y: torch.Tensor) -> dict:
         """
@@ -260,8 +281,7 @@ class Trainer:
 
             # Validation step every val_interval steps (AFTER training to avoid GPU stalls)
             if self.iteration % self.config.trainer.val_interval == 0 and self.iteration > 0:
-                x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
-                val_metrics = self.validate_step(x_val, y_val)
+                val_metrics = self.validate_step()
                 
                 log_data = {**val_metrics}
                 self.log(**log_data)
