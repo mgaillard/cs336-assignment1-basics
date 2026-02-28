@@ -82,7 +82,7 @@ uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-valid.txt 
 ```bash
 uv run cs336_basics/train.py --config configs/gpt_small.yaml
 # If you would like to follow training on Tensorboard, execute:
-uv run tensorboard --logdir ./logs
+uv run tensorboard --logdir ./logs --host=0.0.0.0
 ```
 
 ### Run inference
