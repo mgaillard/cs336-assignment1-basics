@@ -100,6 +100,7 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 
 ## TODOs:
 
+- Add in config file a way to specify a base config file to override from
 - Plot gradient norm.
 - Backup training and validation sets
 - Reduce required GPU memory:

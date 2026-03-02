@@ -10,3 +10,4 @@ uv run cs336_basics/train.py --config configs/experiments/batch_size/gpt_small_b
 uv run cs336_basics/train.py --config configs/experiments/batch_size/gpt_small_bs_32.yaml
 uv run cs336_basics/train.py --config configs/experiments/batch_size/gpt_small_bs_64.yaml
 uv run cs336_basics/train.py --config configs/experiments/batch_size/gpt_small_bs_128.yaml
+uv run cs336_basics/train.py --config configs/experiments/batch_size/gpt_small_bs_256.yaml
