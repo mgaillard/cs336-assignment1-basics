@@ -15,21 +15,21 @@ optim:
   max_grad_norm: 1.0
 
 scheduler:
-  warmup_steps: 200
-  T_max: 10000
+  warmup_steps: 8000
+  T_max: 80000
   eta_min: 0.00003
 
 trainer:
   device: cuda
   compile: false
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 327,680,000
-  max_steps: 10000
+  max_steps: 80000
   save_interval: 1000
   log_interval: 20
   val_interval: 100
 
 data:
-  num_batch: 16
+  num_batch: 2
   batch_size: 8
   val_num_batch: 32
   val_batch_size: 8
