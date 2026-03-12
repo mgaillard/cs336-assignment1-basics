@@ -2,7 +2,9 @@ import torch
 from torch import nn
 
 from cs336_basics.attention import CausalMultiHeadSelfAttention
+from cs336_basics.normalization import create_rms_pre_norm, create_rms_post_norm
 from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
+from cs336_basics.type_definitions import RMSNormType
 
 class TransformerBlock(nn.Module):
     def __init__(
@@ -13,6 +15,7 @@ class TransformerBlock(nn.Module):
             eps: float = 1e-5,
             max_seq_len: int | None = None,
             theta: float | None = None,
+            rms_normalization: RMSNormType = "pre-norm",
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -29,9 +32,11 @@ class TransformerBlock(nn.Module):
         self.num_heads = num_heads
         self.d_ff = d_ff
 
-        self.attn_norm = nn.RMSNorm([d_model], eps=eps)
+        self.attn_pre_norm = create_rms_pre_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
+        self.attn_post_norm = create_rms_post_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
         self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, device=device)
-        self.ffn_norm = nn.RMSNorm([d_model], eps=eps)
+        self.ffn_pre_norm = create_rms_pre_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
+        self.ffn_post_norm = create_rms_post_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
         
@@ -45,23 +50,29 @@ class TransformerBlock(nn.Module):
         - x: torch.Tensor Input tensor of shape (batch_size, sequence_length, d_model)
         - token_positions: torch.Tensor | None Tensor of shape (batch_size, sequence_length)
         """
-        # First RMSNorm
-        x_norm = self.attn_norm(x)
+        # First pre-norm
+        x_pre_norm = self.attn_pre_norm(x)
 
         # Apply Multi-Head Self-Attention
-        attention_output = self.attn(x_norm, token_positions)
+        attention_output = self.attn(x_pre_norm, token_positions)
 
         # First residual connection
         h = x + attention_output
 
-        # Second RMSNorm
-        h_norm = self.ffn_norm(h)
+        # First post-norm (if applicable)
+        h_post_norm = self.attn_post_norm(h)
+
+        # Second pre-norm
+        h_pre_norm = self.ffn_pre_norm(h_post_norm)
 
         # Position-wise Feed-Forward Network
-        ffn_output = self.ffn(h_norm)
+        ffn_output = self.ffn(h_pre_norm)
 
         # Second residual connection
-        output = h + ffn_output
+        output = h_post_norm + ffn_output
 
-        return output
+        # Second post-norm (if applicable)
+        output_norm = self.ffn_post_norm(output)
+
+        return output_norm
     

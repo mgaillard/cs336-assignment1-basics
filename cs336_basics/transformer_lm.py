@@ -3,8 +3,10 @@ from tqdm import tqdm
 import torch
 from torch import nn
 
+from cs336_basics.normalization import create_rms_norm
 from cs336_basics.softmax import softmax
 from cs336_basics.transformer_block import TransformerBlock
+from cs336_basics.type_definitions import RMSNormType
 
 class TransformerLM(nn.Module):
     def __init__(
@@ -17,6 +19,7 @@ class TransformerLM(nn.Module):
             eps: float = 1e-5,
             max_seq_len: int | None = None,
             theta: float | None = None,
+            rms_normalization: RMSNormType = "pre-norm",
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -48,12 +51,13 @@ class TransformerLM(nn.Module):
                 eps=eps,
                 max_seq_len=max_seq_len,
                 theta=theta,
+                rms_normalization=rms_normalization,
                 device=device,
                 dtype=dtype,
             )
 
         # Final RMSNorm
-        self.final_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
+        self.final_norm = create_rms_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
 
         # Output projection
         self.output_proj = nn.Linear(d_model, vocab_size, bias=False, device=device, dtype=dtype)

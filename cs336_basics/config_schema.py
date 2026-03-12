@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Literal
 from pathlib import Path
+
+from cs336_basics.type_definitions import ModelDType, RMSNormType
 
 @dataclass(frozen=True)
 class DataConfig:
@@ -29,7 +30,10 @@ class ModelConfig:
     # Maximum sequence length for RoPE
     max_seq_len: int = 256
     # Theta parameter for RoPE
-    theta: float = 10000 
+    theta: float = 10000
+    # Regarding the RMS normalization, do we use pre-norm (default), post-norm, or nothing?
+    # This is only for ablation purposes, and the default value should be used.
+    rms_normalization: RMSNormType = "pre-norm"
     
 @dataclass(frozen=False)
 class OptimConfig:
@@ -58,7 +62,7 @@ class TrainerConfig:
     # whether to compile the training step with torch.compile. Works best on Linux.
     compile: bool = False
     # mixed precision training dtype
-    dtype: Literal["float32", "bfloat16"] = "float32"
+    dtype: ModelDType = "float32"
     # maximum number of training steps
     max_steps: int = 1000
     # directory for TensorBoard logs

@@ -71,6 +71,7 @@ class Trainer:
             d_ff=self.config.model.d_ff,
             max_seq_len=self.config.model.max_seq_len,
             theta=self.config.model.theta,
+            rms_normalization=self.config.model.rms_normalization,
             device=self.device
         ).to(self.device)
 
