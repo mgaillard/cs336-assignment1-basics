@@ -1,0 +1,4 @@
+extends: ../../gpt_small.yaml
+
+model:
+  rms_normalization: post-norm
