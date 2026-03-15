@@ -1,13 +1,4 @@
-# Example training configuration for TransformerLM
-model:
-  vocab_size: 50257
-  num_layers: 4
-  d_model: 512
-  num_heads: 16
-  d_ff: 1344
-  eps: 0.00001
-  max_seq_len: 256
-  theta: 10000
+extends: ../../gpt_small.yaml
 
 optim:
   lr: 0.0001
@@ -18,22 +9,3 @@ scheduler:
   warmup_steps: 1000
   T_max: 10000
   eta_min: 0.00001
-
-trainer:
-  device: cuda
-  compile: false
-  # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 40,000,000
-  max_steps: 10000
-  save_interval: 1000
-  log_interval: 20
-  val_interval: 100
-
-data:
-  num_batch: 2
-  batch_size: 8
-  val_num_batch: 32
-  val_batch_size: 8
-  context_length: 256
-  # Uncomment and set paths when using real data:
-  train_path: data/TinyStoriesV2-GPT4-train-tokens.npy
-  validation_path: data/TinyStoriesV2-GPT4-valid-tokens.npy

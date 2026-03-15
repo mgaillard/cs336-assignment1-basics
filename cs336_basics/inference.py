@@ -16,7 +16,7 @@ from cs336_basics.logger import setup_logging
 def parse_args():
     p = ArgumentParser()
     p.add_argument("--checkpoint", type=str, default="checkpoints/checkpoint_best_model.pt")
-    p.add_argument("--config", type=str, required=True)
+    p.add_argument("--config", type=Path, required=True)
     p.add_argument("--prompt", type=str, default="Once")
     p.add_argument("--top-p", default=0.95, type=float)
     p.add_argument("--temperature", default=0.0, type=float)
@@ -31,6 +31,7 @@ def main():
     
     # Load configuration
     config = load_config_from_yaml(args.config)
+    logging.info("Loading from config:\n" + str(config))
     device = torch.device(args.device)
     
     # Create model

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 
 from cs336_basics.type_definitions import ModelDType, RMSNormType
@@ -85,5 +85,27 @@ class Config:
     optim: OptimConfig
     trainer: TrainerConfig
     scheduler: SchedulerConfig
+    
+    def pretty_print(self) -> str:
+        """Return a formatted string representation of the config in YAML style."""
+        config_dict = asdict(self)
+        return self._format_dict(config_dict)
+    
+    @staticmethod
+    def _format_dict(data: dict, indent: int = 0) -> str:
+        """Recursively format a dictionary with proper indentation."""
+        lines = []
+        indent_str = "  " * indent
+        for key, value in data.items():
+            if isinstance(value, dict):
+                lines.append(f"{indent_str}{key}:")
+                lines.append(Config._format_dict(value, indent + 1))
+            else:
+                lines.append(f"{indent_str}{key}: {value}")
+        return "\n".join(lines)
+    
+    def __str__(self) -> str:
+        """Return pretty-printed config when converted to string."""
+        return self.pretty_print()
 
 default_cfg = Config(DataConfig(), ModelConfig(), OptimConfig(), TrainerConfig(), SchedulerConfig())

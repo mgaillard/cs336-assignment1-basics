@@ -23,7 +23,7 @@ class Trainer:
         config: Config,
     ) -> None:
         self.config = config
-        logging.info("Loading from config:\n" + repr(config))
+        logging.info("Loading from config:\n" + str(config))
 
         self._init_tensorboard()
         self.device = self._init_device()
