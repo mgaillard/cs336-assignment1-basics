@@ -256,7 +256,7 @@ class Trainer:
         self.optimizer.step()
         self.scheduler.step()
 
-        return {"loss_training": avg_loss}
+        return {"loss_training": avg_loss, "grad_norm": grad_norm}
 
     def train(self):
         """
