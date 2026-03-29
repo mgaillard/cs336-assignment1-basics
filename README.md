@@ -100,8 +100,6 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 
 ## TODOs:
 
-- Implement different RMS norms with polymorphism
-- Make sure unit tests still pass
 - Plot gradient norm.
 - Backup training and validation sets
 - Profile the model

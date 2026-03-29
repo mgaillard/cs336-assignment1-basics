@@ -5,7 +5,7 @@ from torch import nn
 
 from cs336_basics.normalization import create_rms_norm
 from cs336_basics.softmax import softmax
-from cs336_basics.transformer_block import TransformerBlock
+from cs336_basics.transformer_block import create_transformer_block
 from cs336_basics.type_definitions import RMSNormType
 
 class TransformerLM(nn.Module):
@@ -44,14 +44,14 @@ class TransformerLM(nn.Module):
         # Blocks
         self.blocks = nn.ModuleDict()
         for i in range(num_layers):
-            self.blocks[f"block_{i}"] = TransformerBlock(
+            self.blocks[f"block_{i}"] = create_transformer_block(
+                rms_norm_type=rms_normalization,
                 d_model=d_model,
                 num_heads=num_heads,
                 d_ff=d_ff,
                 eps=eps,
                 max_seq_len=max_seq_len,
                 theta=theta,
-                rms_normalization=rms_normalization,
                 device=device,
                 dtype=dtype,
             )

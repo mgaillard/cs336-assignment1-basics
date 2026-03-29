@@ -20,7 +20,7 @@ from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
 from cs336_basics.assignment.rmsnorm import RMSNorm
 from cs336_basics.rope import RotaryPositionalEmbedding
 from cs336_basics.softmax import softmax
-from cs336_basics.transformer_block import TransformerBlock
+from cs336_basics.transformer_block import TransformerBlockPreNorm
 from cs336_basics.transformer_lm import TransformerLM
 
 def run_linear(
@@ -308,7 +308,7 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    transformer_block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len=max_seq_len, theta=theta)
+    transformer_block = TransformerBlockPreNorm(d_model, num_heads, d_ff, max_seq_len=max_seq_len, theta=theta)
     transformer_block.load_state_dict({
         "attn_norm.weight": weights["ln1.weight"],
         "attn.q_proj.weight": weights["attn.q_proj.weight"],
