@@ -1,1 +1,4 @@
 extends: ../../gpt_small.yaml
+
+model:
+  rms_normalization: pre-norm
