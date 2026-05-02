@@ -98,6 +98,12 @@ uv run tensorboard --logdir ./logs --host=0.0.0.0
 uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 ```
 
+### Run benchmark
+
+```bash
+uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml
+```
+
 ## TODOs:
 
 - Backup training and validation sets
