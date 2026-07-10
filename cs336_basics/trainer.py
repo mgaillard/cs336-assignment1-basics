@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import os
 from pathlib import Path
 from tqdm import tqdm
@@ -228,7 +229,8 @@ class Trainer:
                 total_loss += batch_loss
         
         avg_val_loss = total_loss / self.config.data.val_num_batch
-        return {"loss_validation": avg_val_loss}
+        perplexity_validation = math.exp(avg_val_loss)
+        return {"loss_validation": avg_val_loss, "perplexity_validation": perplexity_validation}
     
     def train_step(self) -> dict:
         """
