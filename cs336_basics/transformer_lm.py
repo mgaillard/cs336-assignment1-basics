@@ -64,6 +64,18 @@ class TransformerLM(nn.Module):
         # Softmax
         self.softmax = nn.Softmax(dim=-1)
 
+    def cast_weights(self, dtype: torch.dtype) -> "TransformerLM":
+        """Recursively cast the large weight matrices (token embedding, transformer-block
+        projections, and the output projection) to `dtype`, leaving precision-sensitive modules
+        (RMSNorm and RoPE) in their original float32 dtype. These small modules are dtype-transparent
+        in their forward, so the model runs correctly with a mixed-dtype stream (e.g. bfloat16
+        inference) without autocast. Returns self."""
+        self.embedding.to(dtype)
+        for block in self.blocks.values():
+            block.cast_weights(dtype)
+        self.output_proj.to(dtype)
+        return self
+
     def forward(self, in_indices: torch.Tensor) -> torch.Tensor:
         """
         Applies the Transformer Language Model to the input token indices.

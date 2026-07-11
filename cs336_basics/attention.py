@@ -44,6 +44,15 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         else:
             self.rope = None
 
+    def cast_weights(self, dtype: torch.dtype) -> "CausalMultiHeadSelfAttention":
+        """Cast the Q/K/V/O projection weights to `dtype`. The RoPE buffer is intentionally left in
+        float32 (it is precision-sensitive and dtype-transparent in its forward). Returns self."""
+        self.q_proj.to(dtype)
+        self.k_proj.to(dtype)
+        self.v_proj.to(dtype)
+        self.o_proj.to(dtype)
+        return self
+
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
         """
         Applies multi-head self-attention to the input tensor x.
@@ -73,5 +82,5 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         output = scaled_dot_product_attention(query, key, value, mask)
         output = rearrange(output, "batch head seq dv -> batch seq (head dv)", head=self.num_heads, dv=self.d_v)
         output = self.o_proj(output)
-        
+
         return output

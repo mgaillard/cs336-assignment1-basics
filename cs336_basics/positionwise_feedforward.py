@@ -20,6 +20,12 @@ class PositionWiseFeedForward(nn.Module):
         self.w2 = nn.Linear(d_ff, d_model, bias=False, device=device, dtype=dtype)
         self.w3 = nn.Linear(d_model, d_ff, bias=False, device=device, dtype=dtype)
 
+    def cast_weights(self, dtype: torch.dtype) -> "PositionWiseFeedForward":
+        """Cast the W1/W2/W3 linear weights to `dtype`. Returns self."""
+        self.w1.to(dtype)
+        self.w2.to(dtype)
+        self.w3.to(dtype)
+        return self
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ Process an input tensor of shape (batch_size, sequence_length, d_model) and return a tensor of the same shape. """

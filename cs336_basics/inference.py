@@ -7,7 +7,7 @@ import tiktoken
 
 from cs336_basics.transformer_lm import TransformerLM
 from cs336_basics.checkpoint import load_inference_checkpoint
-from cs336_basics.config_utils import load_config_from_yaml
+from cs336_basics.config_utils import load_config_from_yaml, resolve_dtype
 from cs336_basics.logger import setup_logging
 
 
@@ -47,10 +47,17 @@ def main():
         device=device
     ).to(device)
     
-    # Load checkpoint
+    # Load checkpoint (weights are stored in float32)
     logging.info(f"Loading checkpoint from {args.checkpoint}")
     load_inference_checkpoint(args.checkpoint, model)
     model.eval()
+
+    # Optionally cast the large weight matrices to a lower precision (e.g. bfloat16) for inference,
+    # driven by config.trainer.dtype. RMSNorm and RoPE are kept in float32 by cast_weights.
+    dtype = resolve_dtype(config.trainer.dtype)
+    if dtype != torch.float32:
+        logging.info(f"Casting model weights to {dtype} for inference")
+        model.cast_weights(dtype)
     
     # Load tokenizer and get EOS token ID
     tokenizer = tiktoken.get_encoding("gpt2")
@@ -69,14 +76,17 @@ def main():
         args.max_steps = config.model.max_seq_len - len(prompt_tokens)
         logging.info(f"Adjusted max_steps: {args.max_steps}")
     
-    # Generate
-    generated = model.generate(
-        prompt,
-        eos_token_id,
-        top_p=args.top_p,
-        temperature=args.temperature,
-        max_steps=args.max_steps,
-    )
+    # Generate. Autocast (a no-op for float32) routes the precision-sensitive ops (RMSNorm, softmax)
+    # through fp32 while the bfloat16 matmuls run in bfloat16, and avoids the RMSNorm dtype-mismatch
+    # fallback warning that arises from feeding bfloat16 activations into the float32-weighted norm.
+    with torch.autocast(device_type=device.type, dtype=dtype, enabled=dtype != torch.float32):
+        generated = model.generate(
+            prompt,
+            eos_token_id,
+            top_p=args.top_p,
+            temperature=args.temperature,
+            max_steps=args.max_steps,
+        )
     
     # Decode and print
     generated_text = tokenizer.decode(generated[0].cpu().tolist())

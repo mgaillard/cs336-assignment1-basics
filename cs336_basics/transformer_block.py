@@ -36,6 +36,13 @@ class TransformerBlockPreNorm(nn.Module):
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
         
+    def cast_weights(self, dtype: torch.dtype) -> "TransformerBlockPreNorm":
+        """Recursively cast the attention and feed-forward weights to `dtype`, leaving the RMSNorm
+        layers in their original (float32) dtype. Returns self."""
+        self.attn.cast_weights(dtype)
+        self.ffn.cast_weights(dtype)
+        return self
+
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
         """
         Applies the following operation:
@@ -98,6 +105,13 @@ class TransformerBlockPostNorm(nn.Module):
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
         
+    def cast_weights(self, dtype: torch.dtype) -> "TransformerBlockPostNorm":
+        """Recursively cast the attention and feed-forward weights to `dtype`, leaving the RMSNorm
+        layers in their original (float32) dtype. Returns self."""
+        self.attn.cast_weights(dtype)
+        self.ffn.cast_weights(dtype)
+        return self
+
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
         """
         Applies the following operation:
@@ -158,6 +172,12 @@ class TransformerBlockNoNorm(nn.Module):
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
         
+    def cast_weights(self, dtype: torch.dtype) -> "TransformerBlockNoNorm":
+        """Recursively cast the attention and feed-forward weights to `dtype`. Returns self."""
+        self.attn.cast_weights(dtype)
+        self.ffn.cast_weights(dtype)
+        return self
+
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
         """
         Applies the following operation:
