@@ -14,7 +14,7 @@ dependencies = [
     "pytest-timeout",
     "regex>=2026.3.32", # more powerful regex than the builtin `re` module
     "tiktoken>=0.12.0",
-    "torch~=2.11.0",
+    "torch~=2.13.0",
     "tqdm>=4.67",
     "wandb>=0.25",
     "ty>=0.0.26",
@@ -36,12 +36,12 @@ python-preference = "managed"
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.pytest.ini_options]
