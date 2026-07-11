@@ -1,9 +1,17 @@
 from pathlib import Path
 from typing import Any
 
+import torch
 import yaml
 
 from cs336_basics.config_schema import Config, ModelConfig, OptimConfig, SchedulerConfig, TrainerConfig, DataConfig
+
+_DTYPE_MAP: dict[str, torch.dtype] = {"float32": torch.float32, "bfloat16": torch.bfloat16}
+
+
+def resolve_dtype(name: str) -> torch.dtype:
+    """Map a ModelDType config string (e.g. "float32", "bfloat16") to a torch.dtype."""
+    return _DTYPE_MAP[name]
 
 
 def _deep_merge_dicts(base: dict, override: dict) -> dict:

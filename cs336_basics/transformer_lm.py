@@ -4,7 +4,6 @@ import torch
 from torch import nn
 
 from cs336_basics.normalization import create_rms_norm
-from cs336_basics.softmax import softmax
 from cs336_basics.transformer_block import create_transformer_block
 from cs336_basics.type_definitions import RMSNormType
 
@@ -117,7 +116,9 @@ class TransformerLM(nn.Module):
                 if temperature == 0.0:
                     out = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
                 else:
-                    probs = softmax(logits, dim=-1, temperature=temperature)[:, -1, :]
+                    # Temperature scaling is equivalent to dividing the logits by the temperature
+                    # before softmax; torch.softmax handles the max-subtraction for stability.
+                    probs = torch.softmax(logits / temperature, dim=-1)[:, -1, :]
                     # nucleous sampling
                     if top_p < 1.0:
                         sorted_values, sorted_idx = probs.sort(-1, descending=True)

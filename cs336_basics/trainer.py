@@ -11,6 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.config_schema import Config
+from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.dataset import MemoryMappedDataset
 from cs336_basics.transformer_lm import TransformerLM
 
@@ -28,6 +29,8 @@ class Trainer:
 
         self._init_tensorboard()
         self.device = self._init_device()
+        self.dtype = resolve_dtype(self.config.trainer.dtype)
+        self.use_amp = self.dtype != torch.float32
         self.model = self._init_model()
         self.loss_fn = self._init_loss_fn()
         self.optimizer = self._init_optimizer()
@@ -224,8 +227,9 @@ class Trainer:
         with torch.no_grad():
             for _ in range(self.config.data.val_num_batch):
                 x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
-                logits_val = self.model(x_val)
-                batch_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
+                with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
+                    logits_val = self.model(x_val)
+                    batch_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
                 total_loss += batch_loss
         
         avg_val_loss = total_loss / self.config.data.val_num_batch
@@ -245,9 +249,10 @@ class Trainer:
         
         for _ in range(self.config.data.num_batch):
             x, y = self.train_dataset.get_batch(self.config.data.batch_size)
-            logits = self.model(x)
-            loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))
-            loss /= self.config.data.num_batch
+            with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
+                logits = self.model(x)
+                loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))
+                loss /= self.config.data.num_batch
             loss.backward()  # Gradients accumulate
             avg_loss += loss.item()
 

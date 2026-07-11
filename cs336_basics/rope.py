@@ -56,12 +56,16 @@ class RotaryPositionalEmbedding(nn.Module):
         if len(token_positions.shape) < len(x.shape) - 1:
             token_positions = token_positions.unsqueeze(1).expand(x.shape[:-1])
 
-        # Slice the precomputed rotations based on token positions
+        # Slice the precomputed (float32) rotations based on token positions
         rotations = self.rotations[token_positions]
 
-        # For each embedding vector in x, apply the RoPE transformation using the precomputed rotations
-        x_arranged_by_pairs = rearrange(x, "... (d_k two) -> ... d_k two", two=2)
-        x_arranged_by_pairs_rotated = einsum(rotations, x_arranged_by_pairs, "... d_k i j, ... d_k j -> ... d_k i")
-        x_rotated = rearrange(x_arranged_by_pairs_rotated, "... d_k two -> ... (d_k two)")
+        # Apply the rotation in float32 regardless of any surrounding autocast context: casting x
+        # to float32 alone is not enough, because autocast would re-downcast the einsum's matmul to
+        # bfloat16. We disable autocast for the rotation, then return the result in x's dtype so the
+        # network's dtype stream stays consistent (no-op in the pure float32 path).
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            x_arranged_by_pairs = rearrange(x.float(), "... (d_k two) -> ... d_k two", two=2)
+            x_arranged_by_pairs_rotated = einsum(rotations, x_arranged_by_pairs, "... d_k i j, ... d_k j -> ... d_k i")
+            x_rotated = rearrange(x_arranged_by_pairs_rotated, "... d_k two -> ... (d_k two)")
 
-        return x_rotated
+        return x_rotated.type_as(x)
