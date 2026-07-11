@@ -101,7 +101,8 @@ uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
 ### Run benchmark
 
 ```bash
-uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml
+uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype float32
+uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat16
 ```
 
 ## TODOs:

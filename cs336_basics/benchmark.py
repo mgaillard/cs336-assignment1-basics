@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.cuda.nvtx as nvtx
 
-from cs336_basics.config_utils import load_config_from_yaml
+from cs336_basics.config_utils import load_config_from_yaml, resolve_dtype
 from cs336_basics.logger import setup_logging
 from cs336_basics.transformer_lm import TransformerLM
 from cs336_basics import attention
@@ -26,10 +26,11 @@ def benchmark_forward_pass(
     num_warmup: int = 5,
     num_measure: int = 10,
     device: torch.device = None,
+    autocast_dtype: torch.dtype | None = None,
 ) -> Dict[str, float]:
     """
     Benchmark the forward pass of the model.
-    
+
     Args:
         model: TransformerLM model to benchmark
         vocab_size: Size of vocabulary for generating random tokens
@@ -38,34 +39,39 @@ def benchmark_forward_pass(
         num_warmup: Number of warmup passes
         num_measure: Number of measurement passes
         device: Device to run on
-    
+        autocast_dtype: If set (e.g. torch.bfloat16), run passes under torch.autocast with this
+            dtype; if None, run in the model's native (float32) precision.
+
     Returns:
         Dictionary with keys: mean_ms, std_ms, min_ms, max_ms
     """
     model.eval()
     times = []
-    
+    use_autocast = autocast_dtype is not None
+
     # Generate random input tokens
     input_ids = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
-    
+
     # Warmup passes
     with torch.no_grad():
         for _ in range(num_warmup):
             torch.cuda.synchronize()
-            _ = model(input_ids)
+            with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
+                _ = model(input_ids)
             torch.cuda.synchronize()
-    
+
     # Measurement passes
     with torch.no_grad():
         for i in range(num_measure):
             with nvtx.range(f"forward_pass_measurement_{i}"):
                 torch.cuda.synchronize()
                 start = default_timer()
-                _ = model(input_ids)
+                with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
+                    _ = model(input_ids)
                 torch.cuda.synchronize()
                 end = default_timer()
                 times.append((end - start) * 1000)  # Convert to milliseconds
-    
+
     times_array = np.array(times)
     return {
         "mean_ms": float(np.mean(times_array)),
@@ -84,10 +90,11 @@ def benchmark_backward_pass(
     num_warmup: int = 5,
     num_measure: int = 10,
     device: torch.device = None,
+    autocast_dtype: torch.dtype | None = None,
 ) -> Dict[str, float]:
     """
     Benchmark the backward pass of the model.
-    
+
     Args:
         model: TransformerLM model to benchmark
         vocab_size: Size of vocabulary for generating random tokens
@@ -97,41 +104,47 @@ def benchmark_backward_pass(
         num_warmup: Number of warmup passes
         num_measure: Number of measurement passes
         device: Device to run on
-    
+        autocast_dtype: If set (e.g. torch.bfloat16), run the forward + loss under torch.autocast
+            with this dtype (mirroring mixed-precision training); if None, run in float32. The
+            backward pass always runs outside the autocast context.
+
     Returns:
         Dictionary with keys: mean_ms, std_ms, min_ms, max_ms
     """
     model.train()
     times = []
-    
+    use_autocast = autocast_dtype is not None
+
     # Generate random input tokens and target labels
     input_ids = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
     target_ids = torch.randint(0, vocab_size, (batch_size * seq_len,), device=device)
-    
+
     # Warmup passes
     for _ in range(num_warmup):
         torch.cuda.synchronize()
-        
-        logits = model(input_ids)
-        loss = loss_fn(logits.view(-1, logits.size(-1)), target_ids)
+
+        with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
+            logits = model(input_ids)
+            loss = loss_fn(logits.view(-1, logits.size(-1)), target_ids)
         loss.backward()
-        
+
         model.zero_grad()
         torch.cuda.synchronize()
-    
+
     # Measurement passes
     for i in range(num_measure):
         with nvtx.range(f"backward_pass_measurement_{i}"):
             torch.cuda.synchronize()
             start = default_timer()
-            
-            logits = model(input_ids)
-            loss = loss_fn(logits.view(-1, logits.size(-1)), target_ids)
+
+            with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
+                logits = model(input_ids)
+                loss = loss_fn(logits.view(-1, logits.size(-1)), target_ids)
             loss.backward()
-            
+
             torch.cuda.synchronize()
             end = default_timer()
-            
+
             times.append((end - start) * 1000)  # Convert to milliseconds
             model.zero_grad()
     
@@ -151,6 +164,11 @@ def parse_args():
     parser.add_argument("--device", type=str, default="cuda", help="Device to run on (cuda or cpu)")
     parser.add_argument("--num-warmup", type=int, default=5, help="Number of warmup passes")
     parser.add_argument("--num-measure", type=int, default=10, help="Number of measurement passes")
+    parser.add_argument(
+        "--dtype", type=str, default="float32", choices=["float32", "bfloat16"],
+        help="Precision to benchmark. 'bfloat16' runs under autocast (like training); run the "
+             "benchmark once per dtype to compare.",
+    )
     return parser.parse_args()
 
 
@@ -218,7 +236,13 @@ def main():
     
     # Create loss function
     loss_fn = nn.CrossEntropyLoss()
-    
+
+    # Resolve the precision to benchmark. 'bfloat16' runs under autocast (mirroring the trainer);
+    # 'float32' runs the model natively. Run the benchmark once per dtype to compare.
+    dtype = resolve_dtype(args.dtype)
+    autocast_dtype = dtype if dtype != torch.float32 else None
+    logging.info(f"Benchmarking dtype: {args.dtype}")
+
     # Benchmark forward pass
     logging.info("Starting forward pass benchmark...")
     forward_stats = benchmark_forward_pass(
@@ -229,6 +253,7 @@ def main():
         num_warmup=args.num_warmup,
         num_measure=args.num_measure,
         device=device,
+        autocast_dtype=autocast_dtype,
     )
     logging.info(
         f"Forward pass benchmark:\n"
@@ -237,7 +262,7 @@ def main():
         f"  Min: {forward_stats['min_ms']:.3f} ms\n"
         f"  Max: {forward_stats['max_ms']:.3f} ms"
     )
-    
+
     # Benchmark backward pass
     logging.info("Starting backward pass benchmark...")
     backward_stats = benchmark_backward_pass(
@@ -249,6 +274,7 @@ def main():
         num_warmup=args.num_warmup,
         num_measure=args.num_measure,
         device=device,
+        autocast_dtype=autocast_dtype,
     )
     logging.info(
         f"Backward pass benchmark:\n"
@@ -257,10 +283,10 @@ def main():
         f"  Min: {backward_stats['min_ms']:.3f} ms\n"
         f"  Max: {backward_stats['max_ms']:.3f} ms"
     )
-    
+
     # Log summary
     logging.info(
-        f"\n=== Benchmark Summary ===\n"
+        f"\n=== Benchmark Summary ({args.dtype}) ===\n"
         f"Batch size: {config.data.batch_size}\n"
         f"Sequence length: {config.data.context_length}\n"
         f"Forward pass (avg): {forward_stats['mean_ms']:.3f} ms\n"
