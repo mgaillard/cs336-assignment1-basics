@@ -79,7 +79,7 @@ class Trainer:
             device=self.device
         ).to(self.device)
 
-        logging.info(f"Model initialized with {sum(p.numel() for p in model.parameters())} parameters.")
+        model.print_num_parameters()
 
         if self.config.trainer.compile:
             logging.info("Compiling model with torch.compile() ...")

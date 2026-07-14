@@ -76,6 +76,25 @@ class TransformerLM(nn.Module):
         self.output_proj.to(dtype)
         return self
 
+    def print_num_parameters(self) -> int:
+        """Print the number of parameters of each named component of the model
+        (token embedding, each Transformer block, final RMSNorm, and output projection)
+        as well as the total. Returns the total number of parameters."""
+        def count(module: nn.Module) -> int:
+            return sum(p.numel() for p in module.parameters())
+
+        print(f"{'Component':<20}{'Parameters':>15}")
+        print("-" * 35)
+        print(f"{'embedding':<20}{count(self.embedding):>15,}")
+        for i in range(self.num_layers):
+            print(f"{f'block_{i}':<20}{count(self.blocks[f'block_{i}']):>15,}")
+        print(f"{'final_norm':<20}{count(self.final_norm):>15,}")
+        print(f"{'output_proj':<20}{count(self.output_proj):>15,}")
+        total = count(self)
+        print("-" * 35)
+        print(f"{'total':<20}{total:>15,}")
+        return total
+
     def forward(self, in_indices: torch.Tensor) -> torch.Tensor:
         """
         Applies the Transformer Language Model to the input token indices.
