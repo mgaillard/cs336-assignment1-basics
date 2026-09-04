@@ -111,9 +111,9 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
 - Profile the model
 - Reduce required GPU memory:
     - Mixed precision with bfloat16 and float32.
+    - Flash Attention
     - Try TF32 kernels with high precision for matmul.
     - Gradient accumulation.
-    - Flash Attention
 - Implement KV cache for inference
 - Use same weights for encoder/decoder
 - Train on Wikipedia data
