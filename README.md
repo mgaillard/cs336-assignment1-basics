@@ -114,3 +114,7 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
     - Try TF32 kernels with high precision for matmul.
     - Gradient accumulation.
     - Flash Attention
+- Implement KV cache for inference
+- Use same weights for encoder/decoder
+- Train on Wikipedia data
+- Train a smaller BPE vocabulary just for English, make sure the vocabulary size is a multiple of 64
