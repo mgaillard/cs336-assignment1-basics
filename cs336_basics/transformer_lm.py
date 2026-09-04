@@ -63,9 +63,6 @@ class TransformerLM(nn.Module):
         # Output projection
         self.output_proj = nn.Linear(d_model, vocab_size, bias=False, device=device, dtype=dtype)
 
-        # Softmax
-        self.softmax = nn.Softmax(dim=-1)
-
     def cast_weights(self, dtype: torch.dtype) -> "TransformerLM":
         """Recursively cast the large weight matrices (token embedding, transformer-block
         projections, and the output projection) to `dtype`, leaving precision-sensitive modules
