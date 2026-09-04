@@ -44,6 +44,7 @@ def main():
         eps=config.model.eps,
         max_seq_len=config.model.max_seq_len,
         theta=config.model.theta,
+        use_pytorch_sdpa=config.model.use_pytorch_sdpa,
         device=device
     ).to(device)
     

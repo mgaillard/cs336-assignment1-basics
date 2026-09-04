@@ -8,6 +8,7 @@ model:
   eps: 0.00001
   max_seq_len: 256
   theta: 10000
+  use_pytorch_sdpa: true
 
 optim:
   lr: 0.0003

@@ -14,6 +14,7 @@ class TransformerBlockPreNorm(nn.Module):
             eps: float = 1e-5,
             max_seq_len: int | None = None,
             theta: float | None = None,
+            use_pytorch_sdpa: bool = True,
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -31,7 +32,7 @@ class TransformerBlockPreNorm(nn.Module):
         self.d_ff = d_ff
 
         self.attn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
-        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, device=device)
+        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device)
         self.ffn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
@@ -83,6 +84,7 @@ class TransformerBlockPostNorm(nn.Module):
             eps: float = 1e-5,
             max_seq_len: int | None = None,
             theta: float | None = None,
+            use_pytorch_sdpa: bool = True,
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -100,7 +102,7 @@ class TransformerBlockPostNorm(nn.Module):
         self.d_ff = d_ff
 
         self.attn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
-        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, device=device)
+        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device)
         self.ffn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
@@ -152,6 +154,7 @@ class TransformerBlockNoNorm(nn.Module):
             eps: float = 1e-5,
             max_seq_len: int | None = None,
             theta: float | None = None,
+            use_pytorch_sdpa: bool = True,
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -168,7 +171,7 @@ class TransformerBlockNoNorm(nn.Module):
         self.num_heads = num_heads
         self.d_ff = d_ff
 
-        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, device=device)
+        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
         
         
@@ -222,6 +225,7 @@ def create_transformer_block(
         - eps: float = 1e-5 Epsilon value for numerical stability
         - max_seq_len: int | None = None Maximum sequence length for RoPE
         - theta: float | None = None Base frequency for RoPE
+        - use_pytorch_sdpa: bool = True Whether to use torch.nn.functional.scaled_dot_product_attention
         - device: torch.device = None Device to place the module on
         - dtype: torch.dtype = None Data type for the module
 

@@ -19,6 +19,7 @@ class TransformerLM(nn.Module):
             max_seq_len: int | None = None,
             theta: float | None = None,
             rms_normalization: RMSNormType = "pre-norm",
+            use_pytorch_sdpa: bool = True,
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -51,6 +52,7 @@ class TransformerLM(nn.Module):
                 eps=eps,
                 max_seq_len=max_seq_len,
                 theta=theta,
+                use_pytorch_sdpa=use_pytorch_sdpa,
                 device=device,
                 dtype=dtype,
             )

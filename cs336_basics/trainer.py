@@ -76,6 +76,7 @@ class Trainer:
             max_seq_len=self.config.model.max_seq_len,
             theta=self.config.model.theta,
             rms_normalization=self.config.model.rms_normalization,
+            use_pytorch_sdpa=self.config.model.use_pytorch_sdpa,
             device=self.device
         ).to(self.device)
 

@@ -34,6 +34,9 @@ class ModelConfig:
     # Regarding the RMS normalization, do we use pre-norm (default), post-norm, or nothing?
     # This is only for ablation purposes, and the default value should be used.
     rms_normalization: RMSNormType = "pre-norm"
+    # Whether to use torch.nn.functional.scaled_dot_product_attention (fused/flash kernels) instead
+    # of the from-scratch attention implementation.
+    use_pytorch_sdpa: bool = True
     
 @dataclass(frozen=False)
 class OptimConfig:
