@@ -235,6 +235,11 @@ def main():
         device=device
     ).to(device)
     
+    if config.trainer.compile:
+        logging.info("Compiling model with torch.compile() ...")
+        model.compile()
+        logging.info("Model compiled.")
+
     # Create loss function
     loss_fn = nn.CrossEntropyLoss()
 

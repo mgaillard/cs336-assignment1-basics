@@ -53,6 +53,11 @@ def main():
     load_inference_checkpoint(args.checkpoint, model)
     model.eval()
 
+    if config.trainer.compile:
+        logging.info("Compiling model with torch.compile() ...")
+        model.compile()
+        logging.info("Model compiled.")
+
     # Optionally cast the large weight matrices to a lower precision (e.g. bfloat16) for inference,
     # driven by config.trainer.dtype. RMSNorm and RoPE are kept in float32 by cast_weights.
     dtype = resolve_dtype(config.trainer.dtype)
