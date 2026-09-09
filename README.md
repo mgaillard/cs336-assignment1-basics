@@ -110,13 +110,11 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
 - Backup training and validation sets
 - Profile the model
 - Reduce required GPU memory:
-    - Mixed precision with bfloat16 and float32.
-    - Flash Attention
     - Try TF32 kernels with high precision for matmul.
-    - Gradient accumulation.
 - Implement KV cache for inference
 - Implement a Diffuser like interface to the models
 - Better optimizer for LLM than Adam
-- Use same weights for encoder/decoder
 - Train on Wikipedia data
 - Train a smaller BPE vocabulary just for English, make sure the vocabulary size is a multiple of 64
+- Use safetensors for saving tensors
+- Add linting in the repo

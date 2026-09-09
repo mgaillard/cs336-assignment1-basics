@@ -77,6 +77,7 @@ class Trainer:
             theta=self.config.model.theta,
             rms_normalization=self.config.model.rms_normalization,
             use_pytorch_sdpa=self.config.model.use_pytorch_sdpa,
+            tie_embeddings=self.config.model.tie_embeddings,
             device=self.device
         ).to(self.device)
 

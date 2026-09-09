@@ -37,6 +37,8 @@ class ModelConfig:
     # Whether to use torch.nn.functional.scaled_dot_product_attention (fused/flash kernels) instead
     # of the from-scratch attention implementation.
     use_pytorch_sdpa: bool = True
+    # Whether to tie the output projection weights to the input token embedding weights.
+    tie_embeddings: bool = True
     
 @dataclass(frozen=False)
 class OptimConfig:

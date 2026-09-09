@@ -20,6 +20,7 @@ class TransformerLM(nn.Module):
             theta: float | None = None,
             rms_normalization: RMSNormType = "pre-norm",
             use_pytorch_sdpa: bool = True,
+            tie_embeddings: bool = True,
             device: torch.device=None,
             dtype:torch.dtype=None) -> None:
         """
@@ -32,6 +33,7 @@ class TransformerLM(nn.Module):
         - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
         - eps: float = 1e-5 Epsilon value for numerical stability
         - max_seq_len: int Maximum sequence length for RoPE. If None, RoPE is not used.
+        - tie_embeddings: bool = True Whether to tie the output projection weight to the token embedding weight.
         """
         super().__init__()
 
@@ -60,8 +62,10 @@ class TransformerLM(nn.Module):
         # Final RMSNorm
         self.final_norm = create_rms_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
 
-        # Output projection
+        # Output projection (optionally tied to the token embedding)
         self.output_proj = nn.Linear(d_model, vocab_size, bias=False, device=device, dtype=dtype)
+        if tie_embeddings:
+            self.embedding.weight = self.output_proj.weight
 
     def cast_weights(self, dtype: torch.dtype) -> "TransformerLM":
         """Recursively cast the large weight matrices (token embedding, transformer-block
