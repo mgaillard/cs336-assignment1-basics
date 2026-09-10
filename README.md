@@ -128,6 +128,7 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
 
 - Backup training and validation sets
 - Profile the model
+- Allow the trainer to start training from an existing checkpoint
 - Reduce required GPU memory:
     - Try TF32 kernels with high precision for matmul.
 - Implement KV cache for inference

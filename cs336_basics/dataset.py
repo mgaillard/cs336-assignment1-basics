@@ -36,7 +36,7 @@ class MemoryMappedDataset:
         logger.info(f"Loading data from {path} ...")
         self.ds = np.load(path, mmap_mode="r")
         self.total_length = len(self.ds)
-        logger.info(f"Dataset loaded with {self.total_length} tokens")
+        logger.info(f"Dataset loaded with {self.total_length:,} tokens")
 
         if seed is not None:
             self.generator = torch.Generator().manual_seed(seed)
