@@ -126,17 +126,26 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
 
 ## TODOs:
 
-- Backup training and validation sets
-- Profile the model
-- Allow the trainer to start training from an existing checkpoint
-- Reduce required GPU memory:
-    - Try TF32 kernels with high precision for matmul.
-- Implement KV cache for inference
-- Implement a Diffuser like interface to the models
-- Train on FineWeb data
-- Train a smaller BPE vocabulary just for English, make sure the vocabulary size is a multiple of 64
-- Use safetensors for saving tensors
-- Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
-- How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
-- Better optimizer for LLM than Adam
-- About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
+- Data:
+    - Train on FineWeb data (probably just a sample)
+    - Backup training and validation sets
+- Model:
+    - Profile the model execution
+    - Profile the model memory consumption
+    - Use a better configuration solution instead of all parameters in __init__ methods
+    - Reduce required GPU memory:
+        - Try TF32 kernels with high precision for matmul.
+    - Reduce number of parameters:
+        - Train a smaller BPE vocabulary just for English, make sure the vocabulary size is a multiple of 64
+    - Better efficiency of use of parameters:
+        - Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
+- Training:
+    - Allow the trainer to start training from an existing checkpoint
+    - Use safetensors for saving tensors
+    - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
+    - Better optimizer for LLM than Adam
+    - About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
+- Inference:
+    - Implement KV cache for inference
+    - Implement a Diffuser like interface to the models
+    - Implement a native on-device inference app
