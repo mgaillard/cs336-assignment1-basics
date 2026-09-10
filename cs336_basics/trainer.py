@@ -202,19 +202,6 @@ class Trainer:
         logging.info(f"Saving checkpoint to {checkpoint_path} at iteration={self.iteration}...")
         save_checkpoint(self.model, self.optimizer, self.iteration, checkpoint_path)
 
-    def validate_step(self, x_val: torch.Tensor, y_val: torch.Tensor) -> dict:
-        """
-        Run a validation step on a batch of validation data and return metrics as a dict.
-        Should be called during training loop at validation intervals.
-        """
-        self.model.eval()
-
-        with torch.no_grad():
-            logits_val = self.model(x_val)
-            val_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-
-        return {"loss_validation": val_loss}
-
     def validate_step(self) -> dict:
         """
         Run validation across multiple batches to avoid OOM errors.

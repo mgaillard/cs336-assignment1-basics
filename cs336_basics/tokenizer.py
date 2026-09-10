@@ -11,7 +11,6 @@ Usage:
 import argparse
 import math
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import tiktoken
@@ -22,7 +21,7 @@ from cs336_basics.pretokenization import find_chunk_boundaries
 
 def encode_file(
     tokenizer: tiktoken.Encoding,
-    filepath: Union[str, Path],
+    filepath: str | Path,
     chunk_size: int = 1024 * 1024,
 ) -> np.ndarray:
     """
@@ -57,7 +56,7 @@ def encode_file(
 
 def decode_file(
     tokenizer: tiktoken.Encoding,
-    tokens_file: Union[str, Path],
+    tokens_file: str | Path,
 ) -> str:
     """
     Decode a numpy file of token IDs back to text.

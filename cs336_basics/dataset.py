@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -48,7 +47,7 @@ class MemoryMappedDataset:
         """Return the number of valid samples in the dataset."""
         return self.total_length - self.context_length
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Get a single sample at index idx.
 
@@ -65,7 +64,7 @@ class MemoryMappedDataset:
         targets = torch.from_numpy(chunk[1:].copy()).long().to(self.device)
         return inputs, targets
 
-    def get_batch(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_batch(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Get a random batch of samples with random sampling.
 

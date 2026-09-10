@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from typing import BinaryIO, IO
 
 import torch

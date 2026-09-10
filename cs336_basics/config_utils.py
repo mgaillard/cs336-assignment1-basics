@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 import torch
 import yaml
@@ -28,7 +27,7 @@ def _deep_merge_dicts(base: dict, override: dict) -> dict:
 def _load_config_dict(config_path: Path) -> dict:
     """Load config dict from YAML file, recursively handling extends."""
     config_path = Path(config_path)
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config_dict = yaml.safe_load(f) or {}
 
     # Load and merge base config if extends is specified

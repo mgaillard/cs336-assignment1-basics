@@ -15,7 +15,7 @@ class DEFAULT:
 _A = TypeVar("_A", np.ndarray, Tensor)
 
 
-def _canonicalize_array(arr: _A) -> np.ndarray:
+def _canonicalize_array[A: (np.ndarray, Tensor)](arr: A) -> np.ndarray:
     if isinstance(arr, Tensor):
         arr = arr.detach().cpu().numpy()
     return arr

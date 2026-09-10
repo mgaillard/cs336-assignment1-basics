@@ -4,7 +4,6 @@ import argparse
 import logging
 from pathlib import Path
 from timeit import default_timer
-from typing import Dict
 
 import numpy as np
 import torch
@@ -27,7 +26,7 @@ def benchmark_forward_pass(
     num_measure: int = 10,
     device: torch.device = None,
     autocast_dtype: torch.dtype | None = None,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Benchmark the forward pass of the model.
 
@@ -91,7 +90,7 @@ def benchmark_backward_pass(
     num_measure: int = 10,
     device: torch.device = None,
     autocast_dtype: torch.dtype | None = None,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Benchmark the backward pass of the model.
 
