@@ -77,7 +77,6 @@ class Trainer:
             d_ff=self.config.model.d_ff,
             max_seq_len=self.config.model.max_seq_len,
             theta=self.config.model.theta,
-            rms_normalization=self.config.model.rms_normalization,
             use_pytorch_sdpa=self.config.model.use_pytorch_sdpa,
             tie_embeddings=self.config.model.tie_embeddings,
             device=self.device,

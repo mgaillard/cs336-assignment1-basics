@@ -385,7 +385,7 @@ def run_transformer_lm(
         next-word distribution for each token.
     """
     transformer_lm = TransformerLM(
-        vocab_size, num_layers, d_model, num_heads, d_ff, max_seq_len=context_length, theta=rope_theta, rms_normalization="pre-norm", use_pytorch_sdpa=False,tie_embeddings=False
+        vocab_size, num_layers, d_model, num_heads, d_ff, max_seq_len=context_length, theta=rope_theta, use_pytorch_sdpa=False,tie_embeddings=False
     )
     state_dict = {
         "embedding.weight": weights["token_embeddings.weight"],

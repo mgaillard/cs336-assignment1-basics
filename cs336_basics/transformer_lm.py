@@ -3,9 +3,7 @@ from tqdm import tqdm
 import torch
 from torch import nn
 
-from cs336_basics.normalization import create_rms_norm
-from cs336_basics.transformer_block import create_transformer_block
-from cs336_basics.type_definitions import RMSNormType
+from cs336_basics.transformer_block import TransformerBlockPreNorm
 
 
 class TransformerLM(nn.Module):
@@ -19,7 +17,6 @@ class TransformerLM(nn.Module):
         max_seq_len: int,
         theta: float,
         eps: float = 1e-5,
-        rms_normalization: RMSNormType = "pre-norm",
         use_pytorch_sdpa: bool = True,
         tie_embeddings: bool = True,
         device: torch.device = None,
@@ -49,8 +46,7 @@ class TransformerLM(nn.Module):
         # Blocks
         self.blocks = nn.ModuleDict()
         for i in range(num_layers):
-            self.blocks[f"block_{i}"] = create_transformer_block(
-                rms_norm_type=rms_normalization,
+            self.blocks[f"block_{i}"] = TransformerBlockPreNorm(
                 d_model=d_model,
                 num_heads=num_heads,
                 d_ff=d_ff,
@@ -63,7 +59,7 @@ class TransformerLM(nn.Module):
             )
 
         # Final RMSNorm
-        self.final_norm = create_rms_norm(rms_normalization, [d_model], eps=eps, device=device, dtype=dtype)
+        self.final_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
 
         # Output projection (optionally tied to the token embedding)
         self.output_proj = nn.Linear(d_model, vocab_size, bias=False, device=device, dtype=dtype)
