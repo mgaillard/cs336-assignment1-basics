@@ -135,49 +135,6 @@ def run_scaled_dot_product_attention(
     return scaled_dot_product_attention(Q, K, V, mask)
 
 
-def run_multihead_self_attention(
-    d_model: int,
-    num_heads: int,
-    q_proj_weight: Float[Tensor, " d_k d_in"],
-    k_proj_weight: Float[Tensor, " d_k d_in"],
-    v_proj_weight: Float[Tensor, " d_v d_in"],
-    o_proj_weight: Float[Tensor, " d_model d_v"],
-    in_features: Float[Tensor, " ... sequence_length d_in"],
-) -> Float[Tensor, " ... sequence_length d_out"]:
-    """
-    Given the key, query, and value projection weights of a naive unbatched
-    implementation of multi-head attention, return the output of an optimized batched
-    implementation. This implementation should handle the key, query, and value projections
-    for all heads in a single matrix multiply.
-    This function should not use RoPE.
-    See section 3.2.2 of Vaswani et al., 2017.
-
-    Args:
-        d_model (int): Dimensionality of the feedforward input and output.
-        num_heads (int): Number of heads to use in multi-headed attention.
-        max_seq_len (int): Maximum sequence length to pre-cache if your implementation does that.
-        q_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the Q projection
-        k_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the K projection
-        v_proj_weight (Float[Tensor, "d_k d_in"]): Weights for the V projection
-        o_proj_weight (Float[Tensor, "d_model d_v"]): Weights for the output projection
-        in_features (Float[Tensor, "... sequence_length d_in"]): Tensor to run your implementation on.
-
-    Returns:
-        Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
-        implementation with the given QKV projection weights and input features.
-    """
-    attention = CausalMultiHeadSelfAttention(d_model, num_heads)
-    attention.load_state_dict(
-        {
-            "q_proj.weight": q_proj_weight,
-            "k_proj.weight": k_proj_weight,
-            "v_proj.weight": v_proj_weight,
-            "o_proj.weight": o_proj_weight,
-        }
-    )
-    return attention(in_features)
-
-
 def run_multihead_self_attention_with_rope(
     d_model: int,
     num_heads: int,
@@ -224,6 +181,10 @@ def run_multihead_self_attention_with_rope(
             "o_proj.weight": o_proj_weight,
         }
     )
+    # token_positions is now mandatory downstream; default to sequential positions when not provided.
+    if token_positions is None:
+        batch_size, seq_length = in_features.shape[0], in_features.shape[-2]
+        token_positions = torch.arange(seq_length, device=in_features.device).unsqueeze(0).expand(batch_size, -1)
     return attention(in_features, token_positions)
 
 

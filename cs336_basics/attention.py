@@ -35,8 +35,8 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         self,
         d_model: int,
         num_heads: int,
-        max_seq_len: int | None = None,
-        theta: float | None = None,
+        max_seq_len: int,
+        theta: float,
         use_pytorch_sdpa: bool = True,
         device=None,
     ):
@@ -51,11 +51,8 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         self.k_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device)
         self.v_proj = torch.nn.Linear(self.d_v * num_heads, d_model, bias=False, device=device)
         self.o_proj = torch.nn.Linear(d_model, self.d_v * num_heads, bias=False, device=device)
-        # Only apply RoPE if both max_seq_len and theta are provided
-        if max_seq_len is not None and theta is not None:
-            self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len, device=device)
-        else:
-            self.rope = None
+        # RoPE (Rotary Positional Embedding) for the attention mechanism
+        self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len, device=device)
 
     def cast_weights(self, dtype: torch.dtype) -> "CausalMultiHeadSelfAttention":
         """Cast the Q/K/V/O projection weights to `dtype`. The RoPE buffer is intentionally left in
@@ -66,12 +63,12 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         self.o_proj.to(dtype)
         return self
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
         Applies multi-head self-attention to the input tensor x.
         Parameters:
         - x: torch.Tensor Input tensor of shape (batch_size, sequence_length, d_model)
-        - token_positions: torch.Tensor | None Tensor of shape (batch_size, sequence_length)
+        - token_positions: torch.Tensor Tensor of shape (batch_size, sequence_length)
         """
         batch_size, seq_length, d_model = x.size()
 
@@ -87,9 +84,8 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         value = rearrange(value, "batch seq (head dv) -> batch head seq dv", head=self.num_heads, dv=self.d_v)
         mask = rearrange(mask, "seq_q seq_k -> 1 1 seq_q seq_k")
 
-        if self.rope is not None and token_positions is not None:
-            query = self.rope(query, token_positions)
-            key = self.rope(key, token_positions)
+        query = self.rope(query, token_positions)
+        key = self.rope(key, token_positions)
 
         if self.use_pytorch_sdpa:
             output = torch.nn.functional.scaled_dot_product_attention(query, key, value, attn_mask=mask)

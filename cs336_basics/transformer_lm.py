@@ -16,9 +16,9 @@ class TransformerLM(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        max_seq_len: int,
+        theta: float,
         eps: float = 1e-5,
-        max_seq_len: int | None = None,
-        theta: float | None = None,
         rms_normalization: RMSNormType = "pre-norm",
         use_pytorch_sdpa: bool = True,
         tie_embeddings: bool = True,
@@ -33,8 +33,9 @@ class TransformerLM(nn.Module):
         - d_model: int Dimensionality of the Transformer block inputs.
         - num_heads: int Number of heads to use in multi-head self-attention.
         - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
+        - max_seq_len: int Maximum sequence length for RoPE.
+        - theta: float Base frequency for RoPE.
         - eps: float = 1e-5 Epsilon value for numerical stability
-        - max_seq_len: int Maximum sequence length for RoPE. If None, RoPE is not used.
         - tie_embeddings: bool = True Whether to tie the output projection weight to the token embedding weight.
         """
         super().__init__()

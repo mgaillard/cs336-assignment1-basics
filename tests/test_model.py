@@ -7,7 +7,6 @@ from .adapters import (
     run_multihead_self_attention_with_rope,
     run_rope,
     run_silu,
-    run_multihead_self_attention,
     run_swiglu,
     run_rmsnorm,
     run_scaled_dot_product_attention,
@@ -72,23 +71,6 @@ def test_4d_scaled_dot_product_attention(numpy_snapshot, q, k, v, mask):
         actual_output,
         atol=1e-6,
     )
-
-
-def test_multihead_self_attention(numpy_snapshot, in_embeddings, d_model, n_heads, ts_state_dict):
-    d, _ = ts_state_dict
-    q_proj_weight, k_proj_weight, v_proj_weight, o_proj_weight = [
-        d[f"layers.0.attn.{k}_proj.weight"] for k in ["q", "k", "v", "output"]
-    ]
-    actual_output = run_multihead_self_attention(
-        d_model=d_model,
-        num_heads=n_heads,
-        q_proj_weight=q_proj_weight,
-        k_proj_weight=k_proj_weight,
-        v_proj_weight=v_proj_weight,
-        o_proj_weight=o_proj_weight,
-        in_features=in_embeddings,
-    )
-    numpy_snapshot.assert_match(actual_output, atol=1e-6)
 
 
 def test_multihead_self_attention_with_rope(

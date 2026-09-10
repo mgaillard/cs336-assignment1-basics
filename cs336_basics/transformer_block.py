@@ -12,9 +12,9 @@ class TransformerBlockPreNorm(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        max_seq_len: int,
+        theta: float,
         eps: float = 1e-5,
-        max_seq_len: int | None = None,
-        theta: float | None = None,
         use_pytorch_sdpa: bool = True,
         device: torch.device = None,
         dtype: torch.dtype = None,
@@ -47,7 +47,7 @@ class TransformerBlockPreNorm(nn.Module):
         self.ffn.cast_weights(dtype)
         return self
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
         Applies the following operation:
         h = x + MultiHeadSelfAttention(RMSNorm(x))
@@ -55,7 +55,7 @@ class TransformerBlockPreNorm(nn.Module):
 
         Parameters:
         - x: torch.Tensor Input tensor of shape (batch_size, sequence_length, d_model)
-        - token_positions: torch.Tensor | None Tensor of shape (batch_size, sequence_length)
+        - token_positions: torch.Tensor Tensor of shape (batch_size, sequence_length)
         """
         # First pre-norm
         x_pre_norm = self.attn_norm(x)
@@ -84,9 +84,9 @@ class TransformerBlockPostNorm(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        max_seq_len: int,
+        theta: float,
         eps: float = 1e-5,
-        max_seq_len: int | None = None,
-        theta: float | None = None,
         use_pytorch_sdpa: bool = True,
         device: torch.device = None,
         dtype: torch.dtype = None,
@@ -119,7 +119,7 @@ class TransformerBlockPostNorm(nn.Module):
         self.ffn.cast_weights(dtype)
         return self
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
         Applies the following operation:
         h = RMSNorm(x + MultiHeadSelfAttention(x))
@@ -127,7 +127,7 @@ class TransformerBlockPostNorm(nn.Module):
 
         Parameters:
         - x: torch.Tensor Input tensor of shape (batch_size, sequence_length, d_model)
-        - token_positions: torch.Tensor | None Tensor of shape (batch_size, sequence_length)
+        - token_positions: torch.Tensor Tensor of shape (batch_size, sequence_length)
         """
         # Apply Multi-Head Self-Attention
         attention_output = self.attn(x, token_positions)
@@ -156,9 +156,9 @@ class TransformerBlockNoNorm(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        max_seq_len: int,
+        theta: float,
         eps: float = 1e-5,
-        max_seq_len: int | None = None,
-        theta: float | None = None,
         use_pytorch_sdpa: bool = True,
         device: torch.device = None,
         dtype: torch.dtype = None,
@@ -188,7 +188,7 @@ class TransformerBlockNoNorm(nn.Module):
         self.ffn.cast_weights(dtype)
         return self
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
         Applies the following operation:
         h = x + MultiHeadSelfAttention(x)
@@ -196,7 +196,7 @@ class TransformerBlockNoNorm(nn.Module):
 
         Parameters:
         - x: torch.Tensor Input tensor of shape (batch_size, sequence_length, d_model)
-        - token_positions: torch.Tensor | None Tensor of shape (batch_size, sequence_length)
+        - token_positions: torch.Tensor Tensor of shape (batch_size, sequence_length)
         """
         # Apply Multi-Head Self-Attention
         attention_output = self.attn(x, token_positions)
@@ -229,9 +229,9 @@ def create_transformer_block(
     - num_heads: int Number of heads to use in multi-head self-attention.
     - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
     - **kwargs: Additional keyword arguments passed to the transformer block:
+        - max_seq_len: int Maximum sequence length for RoPE
+        - theta: float Base frequency for RoPE
         - eps: float = 1e-5 Epsilon value for numerical stability
-        - max_seq_len: int | None = None Maximum sequence length for RoPE
-        - theta: float | None = None Base frequency for RoPE
         - use_pytorch_sdpa: bool = True Whether to use torch.nn.functional.scaled_dot_product_attention
         - device: torch.device = None Device to place the module on
         - dtype: torch.dtype = None Data type for the module
