@@ -38,6 +38,7 @@ class Trainer:
         self.scheduler = self._init_scheduler()
         self._init_datasets()
         self.iteration = 0
+        self.tokens_processed = 0
         if config.trainer.load_from:
             self.load_state(config.trainer.load_from)
 
@@ -244,6 +245,7 @@ class Trainer:
                 loss /= self.config.data.num_batch
             loss.backward()  # Gradients accumulate
             avg_loss += loss.item()
+            self.tokens_processed += x.numel()
 
         grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.optim.max_grad_norm)
         if grad_norm > self.config.optim.max_grad_norm:
@@ -275,7 +277,7 @@ class Trainer:
             # Log every log_interval steps
             if self.iteration % self.config.trainer.log_interval == 0:
                 learning_rate = self.scheduler.get_last_lr()[0]
-                log_data = {**train_metrics, "learning_rate": learning_rate}
+                log_data = {**train_metrics, "learning_rate": learning_rate, "tokens_processed": self.tokens_processed}
                 self.log(**log_data)
                 pbar.reset()
 
