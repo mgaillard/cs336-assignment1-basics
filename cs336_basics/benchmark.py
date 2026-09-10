@@ -147,7 +147,7 @@ def benchmark_backward_pass(
 
             times.append((end - start) * 1000)  # Convert to milliseconds
             model.zero_grad()
-    
+
     times_array = np.array(times)
     return {
         "mean_ms": float(np.mean(times_array)),
@@ -165,9 +165,12 @@ def parse_args():
     parser.add_argument("--num-warmup", type=int, default=5, help="Number of warmup passes")
     parser.add_argument("--num-measure", type=int, default=10, help="Number of measurement passes")
     parser.add_argument(
-        "--dtype", type=str, default="float32", choices=["float32", "bfloat16"],
+        "--dtype",
+        type=str,
+        default="float32",
+        choices=["float32", "bfloat16"],
         help="Precision to benchmark. 'bfloat16' runs under autocast (like training); run the "
-             "benchmark once per dtype to compare.",
+        "benchmark once per dtype to compare.",
     )
     return parser.parse_args()
 
@@ -179,21 +182,21 @@ def patch_for_profiling():
     """
     # Instrument scaled_dot_product_attention function
     original_sdpa = attention.scaled_dot_product_attention
-    
+
     def instrumented_sdpa(query, key, value, mask=None):
         with nvtx.range("scaled_dot_product_attention"):
             return original_sdpa(query, key, value, mask)
-    
+
     attention.scaled_dot_product_attention = instrumented_sdpa
-    
+
     # Instrument CausalMultiHeadSelfAttention class
     OriginalCausalMultiHeadSelfAttention = attention.CausalMultiHeadSelfAttention
-    
+
     class InstrumentedCausalMultiHeadSelfAttention(OriginalCausalMultiHeadSelfAttention):
         def forward(self, x, token_positions=None):
             with nvtx.range("CausalMultiHeadSelfAttention"):
                 return super().forward(x, token_positions)
-    
+
     attention.CausalMultiHeadSelfAttention = InstrumentedCausalMultiHeadSelfAttention
     # Also patch in transformer_block module where it's directly imported
     transformer_block.CausalMultiHeadSelfAttention = InstrumentedCausalMultiHeadSelfAttention
@@ -209,18 +212,18 @@ def main():
     if not torch.cuda.is_available():
         logging.warning("CUDA is not available but this benchmark is for CUDA devices.")
         exit(1)
-    
+
     # Load configuration
     config = load_config_from_yaml(args.config)
     logging.info("Loading from config:\n" + str(config))
-    
+
     # Set device
     device = torch.device(args.device)
     logging.info(f"Using device: {device}")
 
     # Apply profiling patches
     patch_for_profiling()
-    
+
     # Create model
     model = TransformerLM(
         vocab_size=config.model.vocab_size,
@@ -232,9 +235,9 @@ def main():
         max_seq_len=config.model.max_seq_len,
         theta=config.model.theta,
         use_pytorch_sdpa=config.model.use_pytorch_sdpa,
-        device=device
+        device=device,
     ).to(device)
-    
+
     if config.trainer.compile:
         logging.info("Compiling model with torch.compile() ...")
         model.compile()
@@ -300,6 +303,7 @@ def main():
         f"Total (avg): {forward_stats['mean_ms'] + backward_stats['mean_ms']:.3f} ms\n"
         f"Backward/Forward ratio: {backward_stats['mean_ms'] / forward_stats['mean_ms']:.2f}x"
     )
+
 
 if __name__ == "__main__":
     main()

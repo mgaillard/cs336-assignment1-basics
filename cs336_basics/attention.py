@@ -4,10 +4,13 @@ from einops import einsum, rearrange
 
 from cs336_basics.rope import RotaryPositionalEmbedding
 
-def scaled_dot_product_attention(query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor=None):
+
+def scaled_dot_product_attention(
+    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor = None
+):
     """
     Compute the scaled dot-product attention.
-    
+
     Parameters:
     - query: A tensor of shape (batch_size, ..., seq_length, d_k) representing the query vectors.
     - key: A tensor of shape (batch_size, ..., seq_length, d_k) representing the key vectors.
@@ -21,13 +24,22 @@ def scaled_dot_product_attention(query: torch.Tensor, key: torch.Tensor, value: 
     d_k = torch.tensor(query.shape[-1], dtype=torch.float32)
     scores = einsum(query, key, "batch ... seq_q d_k, batch ... seq_k d_k -> batch ... seq_q seq_k") / torch.sqrt(d_k)
     if mask is not None:
-        scores = scores.masked_fill(mask == 0, float('-inf'))
+        scores = scores.masked_fill(mask == 0, float("-inf"))
     weights = torch.softmax(scores, dim=-1)
     output = torch.matmul(weights, value)
     return output
 
+
 class CausalMultiHeadSelfAttention(torch.nn.Module):
-    def __init__(self, d_model: int, num_heads: int, max_seq_len: int | None = None, theta: float | None = None, use_pytorch_sdpa: bool = True, device=None):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+        use_pytorch_sdpa: bool = True,
+        device=None,
+    ):
         super().__init__()
 
         assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
@@ -78,7 +90,7 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         if self.rope is not None and token_positions is not None:
             query = self.rope(query, token_positions)
             key = self.rope(key, token_positions)
-        
+
         if self.use_pytorch_sdpa:
             output = torch.nn.functional.scaled_dot_product_attention(query, key, value, attn_mask=mask)
         else:

@@ -5,18 +5,20 @@ from cs336_basics.attention import CausalMultiHeadSelfAttention
 from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
 from cs336_basics.type_definitions import RMSNormType
 
+
 class TransformerBlockPreNorm(nn.Module):
     def __init__(
-            self,
-            d_model: int,
-            num_heads: int,
-            d_ff: int,
-            eps: float = 1e-5,
-            max_seq_len: int | None = None,
-            theta: float | None = None,
-            use_pytorch_sdpa: bool = True,
-            device: torch.device=None,
-            dtype:torch.dtype=None) -> None:
+        self,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        eps: float = 1e-5,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+        use_pytorch_sdpa: bool = True,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> None:
         """
         Construct the TransformerBlock module.
         Parameters:
@@ -32,11 +34,12 @@ class TransformerBlockPreNorm(nn.Module):
         self.d_ff = d_ff
 
         self.attn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
-        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device)
+        self.attn = CausalMultiHeadSelfAttention(
+            d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device
+        )
         self.ffn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
-        
-        
+
     def cast_weights(self, dtype: torch.dtype) -> "TransformerBlockPreNorm":
         """Recursively cast the attention and feed-forward weights to `dtype`, leaving the RMSNorm
         layers in their original (float32) dtype. Returns self."""
@@ -77,16 +80,17 @@ class TransformerBlockPreNorm(nn.Module):
 
 class TransformerBlockPostNorm(nn.Module):
     def __init__(
-            self,
-            d_model: int,
-            num_heads: int,
-            d_ff: int,
-            eps: float = 1e-5,
-            max_seq_len: int | None = None,
-            theta: float | None = None,
-            use_pytorch_sdpa: bool = True,
-            device: torch.device=None,
-            dtype:torch.dtype=None) -> None:
+        self,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        eps: float = 1e-5,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+        use_pytorch_sdpa: bool = True,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> None:
         """
         Construct the TransformerBlock module.
         Parameters:
@@ -102,11 +106,12 @@ class TransformerBlockPostNorm(nn.Module):
         self.d_ff = d_ff
 
         self.attn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
-        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device)
+        self.attn = CausalMultiHeadSelfAttention(
+            d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device
+        )
         self.ffn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
-        
-        
+
     def cast_weights(self, dtype: torch.dtype) -> "TransformerBlockPostNorm":
         """Recursively cast the attention and feed-forward weights to `dtype`, leaving the RMSNorm
         layers in their original (float32) dtype. Returns self."""
@@ -147,16 +152,17 @@ class TransformerBlockPostNorm(nn.Module):
 
 class TransformerBlockNoNorm(nn.Module):
     def __init__(
-            self,
-            d_model: int,
-            num_heads: int,
-            d_ff: int,
-            eps: float = 1e-5,
-            max_seq_len: int | None = None,
-            theta: float | None = None,
-            use_pytorch_sdpa: bool = True,
-            device: torch.device=None,
-            dtype:torch.dtype=None) -> None:
+        self,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        eps: float = 1e-5,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+        use_pytorch_sdpa: bool = True,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> None:
         """
         Construct the TransformerBlock module.
         Parameters:
@@ -171,10 +177,11 @@ class TransformerBlockNoNorm(nn.Module):
         self.num_heads = num_heads
         self.d_ff = d_ff
 
-        self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device)
+        self.attn = CausalMultiHeadSelfAttention(
+            d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device
+        )
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)
-        
-        
+
     def cast_weights(self, dtype: torch.dtype) -> "TransformerBlockNoNorm":
         """Recursively cast the attention and feed-forward weights to `dtype`. Returns self."""
         self.attn.cast_weights(dtype)
@@ -256,4 +263,3 @@ def create_transformer_block(
         )
     else:
         raise ValueError(f"Unknown RMSNormType: {rms_norm_type}")
-

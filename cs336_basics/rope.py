@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from einops import rearrange, einsum
 
+
 class RotaryPositionalEmbedding(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         """
@@ -35,7 +36,7 @@ class RotaryPositionalEmbedding(nn.Module):
                 rotations[i, k, 1, 0] = sin_value
                 rotations[i, k, 1, 1] = cos_value
         # Register as non-persistent buffer so that it is not saved in the state_dict but still moves to the correct device with .to()
-        self.register_buffer('rotations', rotations, persistent=False)
+        self.register_buffer("rotations", rotations, persistent=False)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
@@ -51,7 +52,9 @@ class RotaryPositionalEmbedding(nn.Module):
         # Check that the input tensors have compatible shapes
         x_seq_len = x.shape[-2]
         token_positions_seq_len = token_positions.shape[-1]
-        assert x_seq_len == token_positions_seq_len, "Input tensor and token positions must have the same sequence length"
+        assert x_seq_len == token_positions_seq_len, (
+            "Input tensor and token positions must have the same sequence length"
+        )
         # Generate a view of the token positions so that it has a shape compatible with x
         if len(token_positions.shape) < len(x.shape) - 1:
             token_positions = token_positions.unsqueeze(1).expand(x.shape[:-1])

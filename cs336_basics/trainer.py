@@ -15,6 +15,7 @@ from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.dataset import MemoryMappedDataset
 from cs336_basics.transformer_lm import TransformerLM
 
+
 class Trainer:
     """
     class that takes cfg: Config and runs training
@@ -78,7 +79,7 @@ class Trainer:
             rms_normalization=self.config.model.rms_normalization,
             use_pytorch_sdpa=self.config.model.use_pytorch_sdpa,
             tie_embeddings=self.config.model.tie_embeddings,
-            device=self.device
+            device=self.device,
         ).to(self.device)
 
         model.print_num_parameters()
@@ -89,7 +90,7 @@ class Trainer:
             logging.info("Model compiled.")
 
         return model
-    
+
     def _init_loss_fn(self) -> torch.nn.Module:
         """
         Create and return the loss function to optimize.
@@ -102,8 +103,10 @@ class Trainer:
         Create AdamW optimizer for the model parameters.
         Should be called in __init__ after model is initialized and before scheduler is initialized.
         """
-        return torch.optim.AdamW(self.model.parameters(), lr=self.config.optim.lr, weight_decay=self.config.optim.weight_decay)
-    
+        return torch.optim.AdamW(
+            self.model.parameters(), lr=self.config.optim.lr, weight_decay=self.config.optim.weight_decay
+        )
+
     def _init_scheduler(self) -> LRScheduler:
         """
         Create learning rate scheduler with warmup + cosine annealing.
@@ -113,17 +116,17 @@ class Trainer:
 
         warmup_scheduler = ConstantLR(self.optimizer, factor=1.0, total_iters=scheduler_config.warmup_steps)
 
-        num_cosine_steps = max(scheduler_config.T_max - scheduler_config.warmup_steps, 1) # Avoid T_max <= warmup_steps which causes error
+        num_cosine_steps = max(
+            scheduler_config.T_max - scheduler_config.warmup_steps, 1
+        )  # Avoid T_max <= warmup_steps which causes error
         cosine_scheduler = CosineAnnealingLR(self.optimizer, T_max=num_cosine_steps, eta_min=scheduler_config.eta_min)
 
         scheduler = SequentialLR(
-            self.optimizer,
-            schedulers=[warmup_scheduler, cosine_scheduler],
-            milestones=[scheduler_config.warmup_steps]
+            self.optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[scheduler_config.warmup_steps]
         )
 
         return scheduler
-    
+
     def _init_datasets(self) -> None:
         """
         Initialize the training and validation datasets and store them as attributes.
@@ -139,7 +142,7 @@ class Trainer:
             self.config.model.max_seq_len,
             device=str(self.device),
         )
-    
+
     def log(self, **data) -> None:
         """
         Log metrics to console and TensorBoard.
@@ -155,7 +158,7 @@ class Trainer:
                 # e.g., "loss_training" -> "Loss/Training"
                 formatted_key = "/".join(word.capitalize() for word in k.split("_"))
                 self.writer.add_scalar(formatted_key, v, self.iteration)
-    
+
     def _get_path_for_checkpoint(self, checkpoint_name: str) -> Path:
         """
         Get the full path for a checkpoint file given its name.
@@ -168,7 +171,7 @@ class Trainer:
 
         checkpoint_path = save_dir / checkpoint_name
         return checkpoint_path
-    
+
     def load_state(self, checkpoint_path: Path):
         """
         Load model and optimizer state from a checkpoint file.
@@ -192,15 +195,12 @@ class Trainer:
         if checkpoint_path is None and self.config.trainer.save_dir:
             checkpoint_path = self._get_path_for_checkpoint(f"checkpoint_step_{self.iteration}.pt")
 
-        assert checkpoint_path is not None, "Checkpoint path must be specified either in config with save_dir or as an argument to save_state()"
-        
-        logging.info(f"Saving checkpoint to {checkpoint_path} at iteration={self.iteration}...")
-        save_checkpoint(
-            self.model,
-            self.optimizer,
-            self.iteration,
-            checkpoint_path
+        assert checkpoint_path is not None, (
+            "Checkpoint path must be specified either in config with save_dir or as an argument to save_state()"
         )
+
+        logging.info(f"Saving checkpoint to {checkpoint_path} at iteration={self.iteration}...")
+        save_checkpoint(self.model, self.optimizer, self.iteration, checkpoint_path)
 
     def validate_step(self, x_val: torch.Tensor, y_val: torch.Tensor) -> dict:
         """
@@ -212,20 +212,20 @@ class Trainer:
         with torch.no_grad():
             logits_val = self.model(x_val)
             val_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
-        
+
         return {"loss_validation": val_loss}
 
     def validate_step(self) -> dict:
         """
         Run validation across multiple batches to avoid OOM errors.
         Splits validation into chunks of val_batch_size and averages the loss.
-        
+
         Returns:
             Dictionary with average validation loss across all batches
         """
         self.model.eval()
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for _ in range(self.config.data.val_num_batch):
                 x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
@@ -233,11 +233,11 @@ class Trainer:
                     logits_val = self.model(x_val)
                     batch_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
                 total_loss += batch_loss
-        
+
         avg_val_loss = total_loss / self.config.data.val_num_batch
         perplexity_validation = math.exp(avg_val_loss)
         return {"loss_validation": avg_val_loss, "perplexity_validation": perplexity_validation}
-    
+
     def train_step(self) -> dict:
         """
         Run a training step with gradient accumulation over num_batch batches.
@@ -245,10 +245,10 @@ class Trainer:
         Returns average loss across all accumulated batches.
         """
         self.model.train()
-        
+
         self.optimizer.zero_grad()
         avg_loss = 0.0
-        
+
         for _ in range(self.config.data.num_batch):
             x, y = self.train_dataset.get_batch(self.config.data.batch_size)
             with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
@@ -260,8 +260,10 @@ class Trainer:
 
         grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.optim.max_grad_norm)
         if grad_norm > self.config.optim.max_grad_norm:
-            logging.warning(f"Gradient norm {grad_norm:.2f} exceeds max_grad_norm {self.config.optim.max_grad_norm}. Clipping applied.")
-        
+            logging.warning(
+                f"Gradient norm {grad_norm:.2f} exceeds max_grad_norm {self.config.optim.max_grad_norm}. Clipping applied."
+            )
+
         self.optimizer.step()
         self.scheduler.step()
 
@@ -276,7 +278,7 @@ class Trainer:
 
         # Progress bar for training steps between log intervals
         pbar = tqdm(total=self.config.trainer.log_interval)
-        best_val_loss = float('inf')
+        best_val_loss = float("inf")
 
         while self.iteration < self.config.trainer.max_steps:
             # Training step
@@ -286,20 +288,17 @@ class Trainer:
             # Log every log_interval steps
             if self.iteration % self.config.trainer.log_interval == 0:
                 learning_rate = self.scheduler.get_last_lr()[0]
-                log_data = {
-                    **train_metrics,
-                    "learning_rate": learning_rate
-                }
+                log_data = {**train_metrics, "learning_rate": learning_rate}
                 self.log(**log_data)
                 pbar.reset()
 
             # Validation step every val_interval steps (AFTER training to avoid GPU stalls)
             if self.iteration % self.config.trainer.val_interval == 0 and self.iteration > 0:
                 val_metrics = self.validate_step()
-                
+
                 log_data = {**val_metrics}
                 self.log(**log_data)
-                
+
                 val_loss = val_metrics["loss_validation"]
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss

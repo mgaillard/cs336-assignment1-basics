@@ -3,6 +3,7 @@ from pathlib import Path
 
 from cs336_basics.type_definitions import ModelDType, RMSNormType
 
+
 @dataclass(frozen=True)
 class DataConfig:
     train_path: str | Path = ""
@@ -14,9 +15,10 @@ class DataConfig:
     context_length: int = 256
     seed: int = 42
 
+
 @dataclass(frozen=True)
 class ModelConfig:
-     # Vocabulary size
+    # Vocabulary size
     vocab_size: int = 10000
     # Number of transformer layers
     num_layers: int = 4
@@ -39,7 +41,8 @@ class ModelConfig:
     use_pytorch_sdpa: bool = True
     # Whether to tie the output projection weights to the input token embedding weights.
     tie_embeddings: bool = True
-    
+
+
 @dataclass(frozen=False)
 class OptimConfig:
     # learning rate
@@ -49,6 +52,7 @@ class OptimConfig:
     # maximum gradient norm for clipping
     max_grad_norm: float = 1.0
 
+
 @dataclass(frozen=False)
 class SchedulerConfig:
     # number of warmup steps with constant learning rate
@@ -57,6 +61,7 @@ class SchedulerConfig:
     T_max: int = 1000
     # minimum learning rate
     eta_min: float = 1e-5
+
 
 @dataclass(frozen=False)
 class TrainerConfig:
@@ -83,6 +88,7 @@ class TrainerConfig:
     # validate every n steps
     val_interval: int = 100
 
+
 @dataclass(frozen=False)
 class Config:
     data: DataConfig
@@ -90,12 +96,12 @@ class Config:
     optim: OptimConfig
     trainer: TrainerConfig
     scheduler: SchedulerConfig
-    
+
     def pretty_print(self) -> str:
         """Return a formatted string representation of the config in YAML style."""
         config_dict = asdict(self)
         return self._format_dict(config_dict)
-    
+
     @staticmethod
     def _format_dict(data: dict, indent: int = 0) -> str:
         """Recursively format a dictionary with proper indentation."""
@@ -108,9 +114,10 @@ class Config:
             else:
                 lines.append(f"{indent_str}{key}: {value}")
         return "\n".join(lines)
-    
+
     def __str__(self) -> str:
         """Return pretty-printed config when converted to string."""
         return self.pretty_print()
+
 
 default_cfg = Config(DataConfig(), ModelConfig(), OptimConfig(), TrainerConfig(), SchedulerConfig())

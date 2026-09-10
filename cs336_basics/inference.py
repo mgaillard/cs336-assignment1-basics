@@ -11,8 +11,6 @@ from cs336_basics.config_utils import load_config_from_yaml, resolve_dtype
 from cs336_basics.logger import setup_logging
 
 
-
-
 def parse_args():
     p = ArgumentParser()
     p.add_argument("--checkpoint", type=str, default="checkpoints/checkpoint_best_model.pt")
@@ -28,12 +26,12 @@ def parse_args():
 def main():
     setup_logging()
     args = parse_args()
-    
+
     # Load configuration
     config = load_config_from_yaml(args.config)
     logging.info("Loading from config:\n" + str(config))
     device = torch.device(args.device)
-    
+
     # Create model
     model = TransformerLM(
         vocab_size=config.model.vocab_size,
@@ -45,9 +43,9 @@ def main():
         max_seq_len=config.model.max_seq_len,
         theta=config.model.theta,
         use_pytorch_sdpa=config.model.use_pytorch_sdpa,
-        device=device
+        device=device,
     ).to(device)
-    
+
     # Load checkpoint (weights are stored in float32)
     logging.info(f"Loading checkpoint from {args.checkpoint}")
     load_inference_checkpoint(args.checkpoint, model)
@@ -64,10 +62,12 @@ def main():
     if dtype != torch.float32:
         logging.info(f"Casting model weights to {dtype} for inference")
         model.cast_weights(dtype)
-    
+
     # Load tokenizer and get EOS token ID
     tokenizer = tiktoken.get_encoding("gpt2")
-    eos_token_id = tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})[0] # 50256 is the GPT2 EOT token ID
+    eos_token_id = tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})[
+        0
+    ]  # 50256 is the GPT2 EOT token ID
     logging.info(f"EOS token ID: {eos_token_id}")
 
     # Encode prompt
@@ -78,10 +78,12 @@ def main():
 
     # Validate the prompt length does not exceed model's context length
     if args.max_steps + len(prompt_tokens) > config.model.max_seq_len:
-        logging.warning(f"Prompt length ({len(prompt_tokens)}) + max_steps ({args.max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length.")
+        logging.warning(
+            f"Prompt length ({len(prompt_tokens)}) + max_steps ({args.max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length."
+        )
         args.max_steps = config.model.max_seq_len - len(prompt_tokens)
         logging.info(f"Adjusted max_steps: {args.max_steps}")
-    
+
     # Generate. Autocast (a no-op for float32) routes the precision-sensitive ops (RMSNorm, softmax)
     # through fp32 while the bfloat16 matmuls run in bfloat16, and avoids the RMSNorm dtype-mismatch
     # fallback warning that arises from feeding bfloat16 activations into the float32-weighted norm.
@@ -93,7 +95,7 @@ def main():
             temperature=args.temperature,
             max_steps=args.max_steps,
         )
-    
+
     # Decode and print
     generated_text = tokenizer.decode(generated[0].cpu().tolist())
     logging.info(f"Generated text: {generated_text}")

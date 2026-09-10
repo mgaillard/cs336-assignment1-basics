@@ -41,7 +41,7 @@ def encode_file(
     n_chunks = math.ceil(size / chunk_size)
     boundaries = find_chunk_boundaries(path.open("rb"), n_chunks, b" ")
     tokens_list: list[np.ndarray] = []
-    
+
     with path.open("rb") as f:
         for start, end in tqdm(
             zip(boundaries[:-1], boundaries[1:]),
@@ -51,7 +51,7 @@ def encode_file(
             f.seek(start)
             chunk = f.read(end - start).decode("utf-8", errors="ignore")
             tokens_list.append(tokenizer.encode_to_numpy(chunk, allowed_special={"<|endoftext|>"}))
-    
+
     return np.concatenate(tokens_list)
 
 
@@ -97,12 +97,12 @@ def main():
 
     # Initialize tiktoken encoder with GPT2
     tokenizer = tiktoken.get_encoding("gpt2")
-    
+
     if args.mode == "encode":
         # Encode the file
         print(f"Encoding file: {args.input_file}")
         tokens = encode_file(tokenizer, args.input_file, chunk_size=args.chunk_size)
-        
+
         # Save to numpy file
         print(f"Saving {len(tokens)} tokens to {args.output_file}")
         np.save(args.output_file, tokens)
@@ -110,12 +110,12 @@ def main():
         # Decode the file
         print(f"Decoding file: {args.input_file}")
         text = decode_file(tokenizer, args.input_file)
-        
+
         # Save to text file
         print(f"Saving decoded text to {args.output_file}")
         with open(args.output_file, "w", encoding="utf-8") as f:
             f.write(text)
-    
+
     print("Done!")
 
 

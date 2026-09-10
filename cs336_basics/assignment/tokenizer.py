@@ -1,9 +1,11 @@
 from collections.abc import Iterable, Iterator
 import regex as re
 
-class Tokenizer:
 
-    def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None):
+class Tokenizer:
+    def __init__(
+        self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None
+    ):
         """
         Construct a tokenizer from a given vocabulary, list of merges, and (optionally) a list of special tokens.
         """
@@ -23,7 +25,7 @@ class Tokenizer:
             for special_token in self.special_tokens:
                 byte_encoded_special_token = special_token.encode("utf-8")
                 if byte_encoded_special_token not in self.inv_vocab:
-                    index = len(vocab) # Warning: This assumes that the vocab is a dense mapping from 0 to N-1
+                    index = len(vocab)  # Warning: This assumes that the vocab is a dense mapping from 0 to N-1
                     self.vocab[index] = byte_encoded_special_token
                     self.inv_vocab = index
 
@@ -43,7 +45,7 @@ class Tokenizer:
             return self.inv_vocab[byte_seq]
         else:
             raise ValueError(f"Byte sequence {byte_seq} not found in vocabulary")
-        
+
     def _find_next_special_token(self, text: str, start_pos: int, end_pos: int) -> tuple[int, str]:
         """
         Find the next special token in the text between start_pos and end_pos.
@@ -51,7 +53,7 @@ class Tokenizer:
         """
         if not self.special_tokens:
             return -1
-        
+
         next_special_token: str = ""
         next_special_token_pos = -1
         for special_token in self.special_tokens:
@@ -60,7 +62,7 @@ class Tokenizer:
                 if next_special_token_pos == -1 or index < next_special_token_pos:
                     next_special_token = special_token
                     next_special_token_pos = index
-        
+
         return next_special_token_pos, next_special_token
 
     def _encode_pretoken(self, input_pretoken: bytes) -> list[int]:
@@ -80,8 +82,8 @@ class Tokenizer:
                 if current_pair in self.merge_table:
                     merge_rank = self.merge_table[current_pair]
                     if best_priority_rank == -1 or merge_rank < best_priority_rank:
-                            best_priority_pair = current_pair
-                            best_priority_rank = merge_rank
+                        best_priority_pair = current_pair
+                        best_priority_rank = merge_rank
 
             if best_priority_rank == -1:
                 break  # No more merges can be applied
@@ -90,7 +92,9 @@ class Tokenizer:
             new_tokens: list[bytes] = []
             i = 0
             current_tokens_len = len(current_tokens)
-            while i < current_tokens_len: # We need to use a while loop instead of a for loop because we may skip tokens
+            while (
+                i < current_tokens_len
+            ):  # We need to use a while loop instead of a for loop because we may skip tokens
                 if i < len(current_tokens) - 1 and (current_tokens[i], current_tokens[i + 1]) == best_priority_pair:
                     # Merge the pair
                     new_tokens.append(current_tokens[i] + current_tokens[i + 1])
@@ -98,7 +102,7 @@ class Tokenizer:
                 else:
                     new_tokens.append(current_tokens[i])
                     i += 1
-            
+
             # Update current_tokens with the newly merged tokens
             current_tokens = new_tokens
 
@@ -122,9 +126,9 @@ class Tokenizer:
 
             # But we attempt to find the first special token in the text, and if found, we will process until there
             if self.special_tokens:
-               index, special_token_str = self._find_next_special_token(text, pos, endpos)
-               if index != -1:
-                   if index == pos:
+                index, special_token_str = self._find_next_special_token(text, pos, endpos)
+                if index != -1:
+                    if index == pos:
                         # Special token found at the current position
                         special_token_utf8_encoded = special_token_str.encode("utf-8")
                         # We add the special token ID directly to the output tokens
@@ -132,9 +136,9 @@ class Tokenizer:
                         # We move the position forward by the length of the special token
                         pos += len(special_token_str)
                         continue
-                   else:
-                       # Special token found later in the text, process until the next special token
-                       endpos = index
+                    else:
+                        # Special token found later in the text, process until the next special token
+                        endpos = index
 
             # The regex splitter will split the text into pre-tokens (words, punctuation, spaces, etc.)
             for m in re.finditer(self.regex_splitter, text, pos=pos, endpos=endpos):
@@ -146,7 +150,7 @@ class Tokenizer:
                 tokens.extend(self._encode_pretoken(pre_token_utf8_encoded))
 
             pos = endpos
-            
+
         return tokens
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
@@ -155,7 +159,7 @@ class Tokenizer:
         """
         for text in iterable:
             yield from self.encode(text)
-    
+
     def decode(self, ids: list[int]) -> str:
         """
         Decode a sequence of token IDs back into a string.

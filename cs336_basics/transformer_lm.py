@@ -7,22 +7,24 @@ from cs336_basics.normalization import create_rms_norm
 from cs336_basics.transformer_block import create_transformer_block
 from cs336_basics.type_definitions import RMSNormType
 
+
 class TransformerLM(nn.Module):
     def __init__(
-            self,
-            vocab_size: int,
-            num_layers: int,
-            d_model: int,
-            num_heads: int,
-            d_ff: int,
-            eps: float = 1e-5,
-            max_seq_len: int | None = None,
-            theta: float | None = None,
-            rms_normalization: RMSNormType = "pre-norm",
-            use_pytorch_sdpa: bool = True,
-            tie_embeddings: bool = True,
-            device: torch.device=None,
-            dtype:torch.dtype=None) -> None:
+        self,
+        vocab_size: int,
+        num_layers: int,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        eps: float = 1e-5,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+        rms_normalization: RMSNormType = "pre-norm",
+        use_pytorch_sdpa: bool = True,
+        tie_embeddings: bool = True,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> None:
         """
         Construct the TransformerBlock module.
         Parameters:
@@ -83,6 +85,7 @@ class TransformerLM(nn.Module):
         """Print the number of parameters of each named component of the model
         (token embedding, each Transformer block, final RMSNorm, and output projection)
         as well as the total. Returns the total number of parameters."""
+
         def count(module: nn.Module) -> int:
             return sum(p.numel() for p in module.parameters())
 
@@ -134,7 +137,7 @@ class TransformerLM(nn.Module):
         Generates a sequence of tokens autoregressively given an initial prompt.
         Uses nucleus sampling (top-p) and temperature to sample from the predicted next-word distributions.
         Used code from thepowerfuldeez/cs336_solutions.
-        
+
         Parameters:
         - prompt: torch.Tensor Input integer tensor of shape (batch_size, prompt_length) containing token indices for the initial prompt.
         - eos_token_id: int The special token ID that indicates the end of the generated sequence.

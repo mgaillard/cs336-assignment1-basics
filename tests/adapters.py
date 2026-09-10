@@ -23,6 +23,7 @@ from cs336_basics.softmax import softmax
 from cs336_basics.transformer_block import TransformerBlockPreNorm
 from cs336_basics.transformer_lm import TransformerLM
 
+
 def run_linear(
     d_in: int,
     d_out: int,
@@ -73,7 +74,7 @@ def run_embedding(
     # embedding = nn.Embedding(vocab_size, d_model)
     # embedding.load_state_dict({"weight": weights})
     # return embedding(token_ids)
-    
+
     embedding = Embedding(vocab_size, d_model)
     embedding.load_state_dict({"weight": weights})
     return embedding(token_ids)
@@ -166,7 +167,14 @@ def run_multihead_self_attention(
         implementation with the given QKV projection weights and input features.
     """
     attention = CausalMultiHeadSelfAttention(d_model, num_heads)
-    attention.load_state_dict({"q_proj.weight": q_proj_weight, "k_proj.weight": k_proj_weight, "v_proj.weight": v_proj_weight, "o_proj.weight": o_proj_weight})
+    attention.load_state_dict(
+        {
+            "q_proj.weight": q_proj_weight,
+            "k_proj.weight": k_proj_weight,
+            "v_proj.weight": v_proj_weight,
+            "o_proj.weight": o_proj_weight,
+        }
+    )
     return attention(in_features)
 
 
@@ -208,7 +216,14 @@ def run_multihead_self_attention_with_rope(
         implementation with the given QKV projection weights and input features.
     """
     attention = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
-    attention.load_state_dict({"q_proj.weight": q_proj_weight, "k_proj.weight": k_proj_weight, "v_proj.weight": v_proj_weight, "o_proj.weight": o_proj_weight})
+    attention.load_state_dict(
+        {
+            "q_proj.weight": q_proj_weight,
+            "k_proj.weight": k_proj_weight,
+            "v_proj.weight": v_proj_weight,
+            "o_proj.weight": o_proj_weight,
+        }
+    )
     return attention(in_features, token_positions)
 
 
@@ -309,17 +324,19 @@ def run_transformer_block(
         running the Transformer block on the input features while using RoPE.
     """
     transformer_block = TransformerBlockPreNorm(d_model, num_heads, d_ff, max_seq_len=max_seq_len, theta=theta)
-    transformer_block.load_state_dict({
-        "attn_norm.weight": weights["ln1.weight"],
-        "attn.q_proj.weight": weights["attn.q_proj.weight"],
-        "attn.k_proj.weight": weights["attn.k_proj.weight"],
-        "attn.v_proj.weight": weights["attn.v_proj.weight"],
-        "attn.o_proj.weight": weights["attn.output_proj.weight"],
-        "ffn_norm.weight": weights["ln2.weight"],
-        "ffn.w1.weight": weights["ffn.w1.weight"],
-        "ffn.w2.weight": weights["ffn.w2.weight"],
-        "ffn.w3.weight": weights["ffn.w3.weight"],
-    })
+    transformer_block.load_state_dict(
+        {
+            "attn_norm.weight": weights["ln1.weight"],
+            "attn.q_proj.weight": weights["attn.q_proj.weight"],
+            "attn.k_proj.weight": weights["attn.k_proj.weight"],
+            "attn.v_proj.weight": weights["attn.v_proj.weight"],
+            "attn.o_proj.weight": weights["attn.output_proj.weight"],
+            "ffn_norm.weight": weights["ln2.weight"],
+            "ffn.w1.weight": weights["ffn.w1.weight"],
+            "ffn.w2.weight": weights["ffn.w2.weight"],
+            "ffn.w3.weight": weights["ffn.w3.weight"],
+        }
+    )
     # Need to create token positions for RoPE since they are not provided by the test
     # The positions are just [0, 1, 2, ..., seq_length - 1] for each batch
     batch_size, seq_length, _ = in_features.shape
@@ -407,13 +424,7 @@ def run_transformer_lm(
         next-word distribution for each token.
     """
     transformer_lm = TransformerLM(
-        vocab_size,
-        num_layers,
-        d_model,
-        num_heads,
-        d_ff,
-        max_seq_len=context_length,
-        theta=rope_theta
+        vocab_size, num_layers, d_model, num_heads, d_ff, max_seq_len=context_length, theta=rope_theta
     )
     state_dict = {
         "embedding.weight": weights["token_embeddings.weight"],
@@ -422,17 +433,19 @@ def run_transformer_lm(
     }
     for i in range(num_layers):
         prefix = f"layers.{i}."
-        state_dict.update({
-            f"blocks.block_{i}.attn_norm.weight": weights[prefix + "ln1.weight"],
-            f"blocks.block_{i}.attn.q_proj.weight": weights[prefix + "attn.q_proj.weight"],
-            f"blocks.block_{i}.attn.k_proj.weight": weights[prefix + "attn.k_proj.weight"],
-            f"blocks.block_{i}.attn.v_proj.weight": weights[prefix + "attn.v_proj.weight"],
-            f"blocks.block_{i}.attn.o_proj.weight": weights[prefix + "attn.output_proj.weight"],
-            f"blocks.block_{i}.ffn_norm.weight": weights[prefix + "ln2.weight"],
-            f"blocks.block_{i}.ffn.w1.weight": weights[prefix + "ffn.w1.weight"],
-            f"blocks.block_{i}.ffn.w2.weight": weights[prefix + "ffn.w2.weight"],
-            f"blocks.block_{i}.ffn.w3.weight": weights[prefix + "ffn.w3.weight"],
-        })
+        state_dict.update(
+            {
+                f"blocks.block_{i}.attn_norm.weight": weights[prefix + "ln1.weight"],
+                f"blocks.block_{i}.attn.q_proj.weight": weights[prefix + "attn.q_proj.weight"],
+                f"blocks.block_{i}.attn.k_proj.weight": weights[prefix + "attn.k_proj.weight"],
+                f"blocks.block_{i}.attn.v_proj.weight": weights[prefix + "attn.v_proj.weight"],
+                f"blocks.block_{i}.attn.o_proj.weight": weights[prefix + "attn.output_proj.weight"],
+                f"blocks.block_{i}.ffn_norm.weight": weights[prefix + "ln2.weight"],
+                f"blocks.block_{i}.ffn.w1.weight": weights[prefix + "ffn.w1.weight"],
+                f"blocks.block_{i}.ffn.w2.weight": weights[prefix + "ffn.w2.weight"],
+                f"blocks.block_{i}.ffn.w3.weight": weights[prefix + "ffn.w3.weight"],
+            }
+        )
     transformer_lm.load_state_dict(state_dict)
     return transformer_lm(in_indices)
 

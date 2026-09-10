@@ -4,6 +4,7 @@ from tqdm import tqdm
 
 class TqdmLoggingHandler(logging.Handler):
     """Custom logging handler that uses tqdm.write() to avoid interfering with progress bars."""
+
     def emit(self, record):
         try:
             msg = self.format(record)
@@ -20,7 +21,7 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
     logger = logging.getLogger()
     logger.setLevel(level)
     handler = TqdmLoggingHandler()
-    formatter = logging.Formatter('[%(asctime)s] [%(levelname)s]: %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s]: %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
