@@ -39,6 +39,25 @@ Initially, all tests should fail with `NotImplementedError`s.
 To connect your implementation to the tests, complete the
 functions in [./tests/adapters.py](./tests/adapters.py).
 
+### Lint the code
+
+We use [`ruff`](https://docs.astral.sh/ruff/) for linting and formatting, configured in
+`pyproject.toml`. Run it manually from time to time with:
+
+```sh
+# Check for lint errors
+uv run ruff check .
+
+# Auto-fix what can be fixed
+uv run ruff check . --fix
+
+# Check formatting
+uv run ruff format --check .
+
+# Auto-format
+uv run ruff format .
+```
+
 ### Download data
 Download the TinyStories data and a subsample of OpenWebText
 
@@ -117,4 +136,6 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
 - Train on Wikipedia data
 - Train a smaller BPE vocabulary just for English, make sure the vocabulary size is a multiple of 64
 - Use safetensors for saving tensors
-- Add linting in the repo
+- Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
+- How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
+- About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
