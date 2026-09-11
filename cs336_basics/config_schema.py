@@ -77,7 +77,7 @@ class TrainerConfig:
     # directory to save checkpoints
     save_dir: str | Path = "checkpoints"
     # filename for the best model checkpoint
-    best_model_filename: str = "checkpoint_best_model.pt"
+    best_model_filename: str = "checkpoint_best_model.safetensors"
     # save every n steps
     save_interval: int = 100
     # log train metrics every n steps

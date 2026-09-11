@@ -13,7 +13,7 @@ from cs336_basics.logger import setup_logging
 
 def parse_args():
     p = ArgumentParser()
-    p.add_argument("--checkpoint", type=str, default="checkpoints/checkpoint_best_model.pt")
+    p.add_argument("--checkpoint", type=str, default="checkpoints/checkpoint_best_model.safetensors")
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--prompt", type=str, default="Once")
     p.add_argument("--top-p", default=0.95, type=float)

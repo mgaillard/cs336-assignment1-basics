@@ -141,7 +141,6 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
         - Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
 - Training:
     - Allow the trainer to start training from an existing checkpoint
-    - Use safetensors for saving tensors
     - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
     - Better optimizer for LLM than Adam
     - About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)

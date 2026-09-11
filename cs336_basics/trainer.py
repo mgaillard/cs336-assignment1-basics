@@ -193,7 +193,7 @@ class Trainer:
         Should be called during training loop at save intervals and at the end of training.
         """
         if checkpoint_path is None and self.config.trainer.save_dir:
-            checkpoint_path = self._get_path_for_checkpoint(f"checkpoint_step_{self.iteration}.pt")
+            checkpoint_path = self._get_path_for_checkpoint(f"checkpoint_step_{self.iteration}.safetensors")
 
         assert checkpoint_path is not None, (
             "Checkpoint path must be specified either in config with save_dir or as an argument to save_state()"
