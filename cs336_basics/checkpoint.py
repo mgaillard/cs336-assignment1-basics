@@ -74,25 +74,26 @@ def save_checkpoint(model: nn.Module, optimizer: Optimizer, iteration: int, out:
     # `save_model` (rather than `save_file(model.state_dict(), ...)`) is required because some
     # parameters may share storage (e.g. tied embedding/output projection weights): safetensors
     # refuses to write the same storage under two keys, and `save_model` handles that dedup.
-    save_model(model, str(out), metadata={"iteration": json.dumps(iteration)})
+    save_model(model, str(out))
 
     optimizer_tensors, optimizer_metadata = _flatten_optimizer_state_dict(optimizer.state_dict())
-    optimizer_metadata_json = {"optimizer": json.dumps(_encode_tuples(optimizer_metadata))}
+    optimizer_metadata_json = {
+        "iteration": json.dumps(iteration),
+        "optimizer": json.dumps(_encode_tuples(optimizer_metadata)),
+    }
     save_file(optimizer_tensors, _optimizer_path(out), metadata=optimizer_metadata_json)
 
 
 def load_checkpoint(src: os.PathLike | str, model: nn.Module, optimizer: Optimizer) -> int:
     load_model(model, src)
-    metadata = _read_metadata(src)
 
     optimizer_tensors = load_file(_optimizer_path(src))
-    optimizer_metadata = _decode_tuples(json.loads(_read_metadata(_optimizer_path(src))["optimizer"]))
+    metadata = _read_metadata(_optimizer_path(src))
+    optimizer_metadata = _decode_tuples(json.loads(metadata["optimizer"]))
     optimizer.load_state_dict(_unflatten_optimizer_state_dict(optimizer_tensors, optimizer_metadata))
 
     return json.loads(metadata["iteration"])
 
 
-def load_inference_checkpoint(src: os.PathLike | str, model: nn.Module) -> int:
+def load_inference_checkpoint(src: os.PathLike | str, model: nn.Module) -> None:
     load_model(model, src)
-    metadata = _read_metadata(src)
-    return json.loads(metadata["iteration"])
