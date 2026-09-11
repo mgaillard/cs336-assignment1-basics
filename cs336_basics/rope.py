@@ -4,14 +4,25 @@ from einops import rearrange, einsum
 
 
 class RotaryPositionalEmbedding(nn.Module):
-    def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
+    def __init__(
+        self,
+        d_k: int,
+        max_seq_len: int,
+        theta: float,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ):
         """
         Construct the RoPE module and create buffers if needed.
 
         Parameters:
-            - theta: float Theta value for the RoPE
             - d_k: int dimension of query and key vectors
             - max_seq_len: int Maximum sequence length that will be inputted
+            - theta: float Theta value for the RoPE
+
+        Note: `dtype` is accepted for signature uniformity across model modules, but the precomputed
+        `rotations` buffer is deliberately kept in float32. RoPE is precision-sensitive and its forward
+        is dtype-transparent (it casts to float32 internally and returns in the input dtype).
         """
         super().__init__()
 

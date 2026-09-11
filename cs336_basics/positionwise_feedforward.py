@@ -4,7 +4,13 @@ import torch.nn.functional as F
 
 
 class PositionWiseFeedForward(nn.Module):
-    def __init__(self, d_model: int, d_ff: int, device: torch.device = None, dtype: torch.dtype = None) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        d_ff: int,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> None:
         """
         Construct the PositionWiseFeedForward module.
         Parameters:

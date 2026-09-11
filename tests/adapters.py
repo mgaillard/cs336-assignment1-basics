@@ -172,7 +172,7 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    attention = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
+    attention = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=False)
     attention.load_state_dict(
         {
             "q_proj.weight": q_proj_weight,
@@ -210,7 +210,7 @@ def run_rope(
     # For some reason, the test gives token_positions only with sequence length instead of the shape (batch_size, sequence_length)
     # We add the batch dimension
     token_positions = token_positions.unsqueeze(0).expand(in_query_or_key.shape[:-1])
-    rope = RotaryPositionalEmbedding(theta, d_k, max_seq_len)
+    rope = RotaryPositionalEmbedding(d_k, max_seq_len, theta)
     return rope(in_query_or_key, token_positions)
 
 
@@ -284,7 +284,9 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    transformer_block = TransformerBlockPreNorm(d_model, num_heads, d_ff, max_seq_len=max_seq_len, theta=theta)
+    transformer_block = TransformerBlockPreNorm(
+        d_model, num_heads, d_ff, eps=1e-5, max_seq_len=max_seq_len, theta=theta, use_pytorch_sdpa=False
+    )
     transformer_block.load_state_dict(
         {
             "attn_norm.weight": weights["ln1.weight"],
@@ -390,6 +392,7 @@ def run_transformer_lm(
         d_model,
         num_heads,
         d_ff,
+        eps=1e-5,
         max_seq_len=context_length,
         theta=rope_theta,
         use_pytorch_sdpa=False,

@@ -11,10 +11,10 @@ class TransformerBlockPreNorm(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        eps: float,
         max_seq_len: int,
         theta: float,
-        eps: float = 1e-5,
-        use_pytorch_sdpa: bool = True,
+        use_pytorch_sdpa: bool,
         device: torch.device = None,
         dtype: torch.dtype = None,
     ) -> None:
@@ -24,7 +24,10 @@ class TransformerBlockPreNorm(nn.Module):
         - d_model: int Dimensionality of the Transformer block inputs.
         - num_heads: int Number of heads to use in multi-head self-attention.
         - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
-        - eps: float = 1e-5 Epsilon value for numerical stability
+        - eps: float Epsilon value for numerical stability
+        - max_seq_len: int Maximum sequence length for RoPE.
+        - theta: float Base frequency for RoPE.
+        - use_pytorch_sdpa: bool Whether to use torch's fused scaled_dot_product_attention.
         """
         super().__init__()
 
@@ -34,7 +37,7 @@ class TransformerBlockPreNorm(nn.Module):
 
         self.attn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
         self.attn = CausalMultiHeadSelfAttention(
-            d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=use_pytorch_sdpa, device=device
+            d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa, device=device, dtype=dtype
         )
         self.ffn_norm = nn.RMSNorm([d_model], eps=eps, device=device, dtype=dtype)
         self.ffn = PositionWiseFeedForward(d_model, d_ff, device=device, dtype=dtype)

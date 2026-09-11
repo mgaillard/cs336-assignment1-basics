@@ -75,6 +75,7 @@ class Trainer:
             d_model=self.config.model.d_model,
             num_heads=self.config.model.num_heads,
             d_ff=self.config.model.d_ff,
+            eps=self.config.model.eps,
             max_seq_len=self.config.model.max_seq_len,
             theta=self.config.model.theta,
             use_pytorch_sdpa=self.config.model.use_pytorch_sdpa,

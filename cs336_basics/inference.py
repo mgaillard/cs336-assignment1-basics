@@ -43,6 +43,7 @@ def main():
         max_seq_len=config.model.max_seq_len,
         theta=config.model.theta,
         use_pytorch_sdpa=config.model.use_pytorch_sdpa,
+        tie_embeddings=config.model.tie_embeddings,
         device=device,
     ).to(device)
 

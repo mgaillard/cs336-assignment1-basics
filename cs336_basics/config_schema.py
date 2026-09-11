@@ -28,6 +28,7 @@ class ModelConfig:
     num_heads: int = 16
     # Feedforward dimension
     d_ff: int = 1344
+    # Epsilon value for numerical stability of RMSNorm
     eps: float = 1e-5
     # Maximum sequence length for RoPE
     max_seq_len: int = 256

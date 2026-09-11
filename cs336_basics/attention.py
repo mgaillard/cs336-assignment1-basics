@@ -37,8 +37,9 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         num_heads: int,
         max_seq_len: int,
         theta: float,
-        use_pytorch_sdpa: bool = True,
-        device=None,
+        use_pytorch_sdpa: bool,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
     ):
         super().__init__()
 
@@ -47,12 +48,12 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         self.d_v = d_model // num_heads
         self.num_heads = num_heads
         self.use_pytorch_sdpa = use_pytorch_sdpa
-        self.q_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device)
-        self.k_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device)
-        self.v_proj = torch.nn.Linear(self.d_v * num_heads, d_model, bias=False, device=device)
-        self.o_proj = torch.nn.Linear(d_model, self.d_v * num_heads, bias=False, device=device)
+        self.q_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        self.k_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        self.v_proj = torch.nn.Linear(self.d_v * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        self.o_proj = torch.nn.Linear(d_model, self.d_v * num_heads, bias=False, device=device, dtype=dtype)
         # RoPE (Rotary Positional Embedding) for the attention mechanism
-        self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len, device=device)
+        self.rope = RotaryPositionalEmbedding(self.d_k, max_seq_len, theta, device=device, dtype=dtype)
 
     def cast_weights(self, dtype: torch.dtype) -> "CausalMultiHeadSelfAttention":
         """Cast the Q/K/V/O projection weights to `dtype`. The RoPE buffer is intentionally left in

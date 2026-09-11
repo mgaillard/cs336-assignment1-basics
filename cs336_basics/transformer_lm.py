@@ -14,11 +14,11 @@ class TransformerLM(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        eps: float,
         max_seq_len: int,
         theta: float,
-        eps: float = 1e-5,
-        use_pytorch_sdpa: bool = True,
-        tie_embeddings: bool = True,
+        use_pytorch_sdpa: bool,
+        tie_embeddings: bool,
         device: torch.device = None,
         dtype: torch.dtype = None,
     ) -> None:
@@ -30,10 +30,11 @@ class TransformerLM(nn.Module):
         - d_model: int Dimensionality of the Transformer block inputs.
         - num_heads: int Number of heads to use in multi-head self-attention.
         - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
+        - eps: float Epsilon value for numerical stability
         - max_seq_len: int Maximum sequence length for RoPE.
         - theta: float Base frequency for RoPE.
-        - eps: float = 1e-5 Epsilon value for numerical stability
-        - tie_embeddings: bool = True Whether to tie the output projection weight to the token embedding weight.
+        - use_pytorch_sdpa: bool Whether to use torch's fused scaled_dot_product_attention.
+        - tie_embeddings: bool Whether to tie the output projection weight to the token embedding weight.
         """
         super().__init__()
 
@@ -47,13 +48,13 @@ class TransformerLM(nn.Module):
         self.blocks = nn.ModuleDict()
         for i in range(num_layers):
             self.blocks[f"block_{i}"] = TransformerBlockPreNorm(
-                d_model=d_model,
-                num_heads=num_heads,
-                d_ff=d_ff,
-                eps=eps,
-                max_seq_len=max_seq_len,
-                theta=theta,
-                use_pytorch_sdpa=use_pytorch_sdpa,
+                d_model,
+                num_heads,
+                d_ff,
+                eps,
+                max_seq_len,
+                theta,
+                use_pytorch_sdpa,
                 device=device,
                 dtype=dtype,
             )
