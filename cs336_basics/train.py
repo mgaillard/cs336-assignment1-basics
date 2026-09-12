@@ -1,24 +1,23 @@
 # Basic training script for TransformerLM
 
-import argparse
-from pathlib import Path
+import logging
 
-from cs336_basics.config_utils import load_config_from_yaml
-from cs336_basics.logger import setup_logging
+import hydra
+from omegaconf import DictConfig, OmegaConf
+
+from cs336_basics import config_utils  # noqa: F401  registers the schema + resolvers on import
+from cs336_basics.config_schema import Config
 from cs336_basics.trainer import Trainer
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train TransformerLM")
-    parser.add_argument("--config", type=Path, required=True, help="Path to YAML configuration file")
-    return parser.parse_args()
+@hydra.main(version_base="1.3", config_path="../configs", config_name=None)
+def main(dict_cfg: DictConfig) -> None:
+    # Logging is configured by Hydra via the `hydra/job_logging: tqdm` override in the config.
 
-
-def main():
-    setup_logging()
-
-    args = parse_args()
-    config = load_config_from_yaml(args.config)
+    # Convert the composed DictConfig into a real, type-checked Config dataclass so the rest of the
+    # code (Trainer, etc.) works with plain dataclasses.
+    config: Config = OmegaConf.to_object(dict_cfg)
+    logging.info("Loading from config:\n" + str(config))
 
     trainer = Trainer(config)
     trainer.train()

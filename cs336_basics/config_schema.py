@@ -1,13 +1,14 @@
-from dataclasses import dataclass, asdict
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
 
-from cs336_basics.type_definitions import ModelDType
+from omegaconf import MISSING
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class DataConfig:
-    train_path: str | Path = ""
-    validation_path: str | Path = ""
+    # Required: a config or CLI override must supply these, otherwise composition fails fast with a
+    # MissingMandatoryValue error instead of silently using an unusable empty path.
+    train_path: str = MISSING
+    validation_path: str = MISSING
     num_batch: int = 1
     batch_size: int = 1
     val_num_batch: int = 1
@@ -16,7 +17,7 @@ class DataConfig:
     seed: int = 42
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class ModelConfig:
     # Vocabulary size
     vocab_size: int = 10000
@@ -64,19 +65,19 @@ class SchedulerConfig:
 @dataclass(frozen=False)
 class TrainerConfig:
     # checkpoint to load from (if any)
-    load_from: Path | None = None
+    load_from: str | None = None
     # device to train on "cpu" or "cuda"
     device: str = "cpu"
     # whether to compile the training step with torch.compile. Works best on Linux.
     compile: bool = False
-    # mixed precision training dtype
-    dtype: ModelDType = "float32"
+    # mixed precision training dtype ("float32" or "bfloat16"); resolved via resolve_dtype()
+    dtype: str = "float32"
     # maximum number of training steps
     max_steps: int = 1000
     # directory for TensorBoard logs
-    tensorboard_log_dir: str | Path = "logs"
+    tensorboard_log_dir: str = "logs"
     # directory to save checkpoints
-    save_dir: str | Path = "checkpoints"
+    save_dir: str = "checkpoints"
     # filename for the best model checkpoint
     best_model_filename: str = "checkpoint_best_model.safetensors"
     # save every n steps
@@ -88,12 +89,38 @@ class TrainerConfig:
 
 
 @dataclass(frozen=False)
+class InferenceConfig:
+    # checkpoint to generate from; when None, the latest best-model checkpoint under outputs/ is used
+    checkpoint: str | None = None
+    # prompt to condition generation on
+    prompt: str = "Once"
+    # nucleus (top-p) sampling threshold
+    top_p: float = 0.95
+    # sampling temperature (0.0 = greedy argmax)
+    temperature: float = 0.0
+    # maximum number of tokens to generate
+    max_steps: int = 256
+
+
+@dataclass(frozen=False)
+class BenchmarkConfig:
+    # number of warmup passes (excluded from timing)
+    num_warmup: int = 5
+    # number of measured passes
+    num_measure: int = 10
+    # precision to benchmark ("float32" or "bfloat16"); resolved via resolve_dtype()
+    dtype: str = "float32"
+
+
+@dataclass(frozen=False)
 class Config:
-    data: DataConfig
-    model: ModelConfig
-    optim: OptimConfig
-    trainer: TrainerConfig
-    scheduler: SchedulerConfig
+    data: DataConfig = field(default_factory=DataConfig)
+    model: ModelConfig = field(default_factory=ModelConfig)
+    optim: OptimConfig = field(default_factory=OptimConfig)
+    trainer: TrainerConfig = field(default_factory=TrainerConfig)
+    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
+    inference: InferenceConfig = field(default_factory=InferenceConfig)
+    benchmark: BenchmarkConfig = field(default_factory=BenchmarkConfig)
 
     def pretty_print(self) -> str:
         """Return a formatted string representation of the config in YAML style."""
@@ -118,4 +145,4 @@ class Config:
         return self.pretty_print()
 
 
-default_cfg = Config(DataConfig(), ModelConfig(), OptimConfig(), TrainerConfig(), SchedulerConfig())
+default_cfg = Config()

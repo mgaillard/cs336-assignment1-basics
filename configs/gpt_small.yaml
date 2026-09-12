@@ -1,4 +1,9 @@
 # Example training configuration for TransformerLM
+defaults:
+  - base_config  # attach the structured-config schema (registered via ConfigStore) for validation
+  - override hydra/job_logging: tqdm  # tqdm-safe console handler + per-run file log
+  - _self_       # this file's values override the schema defaults
+
 model:
   vocab_size: 50257
   num_layers: 4
@@ -19,12 +24,18 @@ optim:
 scheduler:
   warmup_steps: 8000
   T_max: 80000
-  eta_min: 0.00003
+  # Coupled to the learning rate (eta_min = lr / 10).
+  # Resolves to 3e-5 at the default lr=3e-4.
+  eta_min: "${mul:${optim.lr},0.1}"
 
 trainer:
   device: cuda
   dtype: bfloat16
   compile: false
+  # Save checkpoints into this run's Hydra output directory so concurrent --multirun jobs (and
+  # successive runs) don't overwrite each other. Resolves to e.g. outputs/<date>/<time> or, under
+  # --multirun, multirun/<date>/<time>/<job>. The dir already exists (Hydra creates it).
+  save_dir: ${hydra:runtime.output_dir}
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 40,000,000
   max_steps: 10000
   save_interval: 1000

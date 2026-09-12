@@ -97,3 +97,19 @@ def load_checkpoint(src: os.PathLike | str, model: nn.Module, optimizer: Optimiz
 
 def load_inference_checkpoint(src: os.PathLike | str, model: nn.Module) -> None:
     load_model(model, src)
+
+
+def find_latest_best_checkpoint(best_model_filename: str, search_dir: os.PathLike | str) -> str:
+    """Return the most recently modified `best_model_filename` found recursively under `search_dir`.
+
+    Training runs save their best-model checkpoint into their own per-run output directory, so given
+    the root where those runs live (e.g. Hydra's run-output directory) this picks the best checkpoint
+    from the latest training run. Raises FileNotFoundError if none exist.
+    """
+    candidates = list(Path(search_dir).glob(f"**/{best_model_filename}"))
+    if not candidates:
+        raise FileNotFoundError(
+            f"No '{best_model_filename}' found under {search_dir}/. Train a model first, or pass "
+            f"inference.checkpoint=<path> explicitly."
+        )
+    return str(max(candidates, key=lambda p: p.stat().st_mtime))

@@ -1,4 +1,7 @@
-extends: ../../gpt_small.yaml
+# @package _global_
+defaults:
+  - /gpt_small  # inherit the full gpt_small config from the configs root
+  - _self_      # this file's values override the inherited ones
 
 scheduler:
   warmup_steps: 200

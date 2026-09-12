@@ -1,12 +1,13 @@
 # !/bin/bash
 #
+# Learning-rate sweep. Runs one training job per learning rate via Hydra --multirun.
+# eta_min is coupled to lr (= lr / 10) through the `${mul:...}` interpolation in gpt_small.yaml,
+# so it is swept automatically. warmup_steps / T_max override the gpt_small defaults for the sweep.
+#
 # Run this file with:
 # nohup bash configs/experiments/lr/run.sh > lr_experiments.log 2>&1 &
 # And check TensorBoard
 #
-uv run cs336_basics/train.py --config configs/experiments/lr/gpt_small_lr_00003.yaml
-uv run cs336_basics/train.py --config configs/experiments/lr/gpt_small_lr_0001.yaml
-uv run cs336_basics/train.py --config configs/experiments/lr/gpt_small_lr_0003.yaml
-uv run cs336_basics/train.py --config configs/experiments/lr/gpt_small_lr_001.yaml
-uv run cs336_basics/train.py --config configs/experiments/lr/gpt_small_lr_003.yaml
-uv run cs336_basics/train.py --config configs/experiments/lr/gpt_small_lr_01.yaml
+uv run cs336_basics/train.py --config-name gpt_small --multirun \
+  scheduler.warmup_steps=1000 scheduler.T_max=10000 \
+  optim.lr=0.00003,0.0001,0.0003,0.001,0.003,0.01

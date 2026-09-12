@@ -164,3 +164,7 @@ cython_debug/
 
 # Data
 data/
+
+# Hydra per-run output directories (contain .hydra/ resolved config + job logs)
+outputs/
+multirun/

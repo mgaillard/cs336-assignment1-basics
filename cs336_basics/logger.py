@@ -1,9 +1,15 @@
 import logging
+
 from tqdm import tqdm
 
 
 class TqdmLoggingHandler(logging.Handler):
-    """Custom logging handler that uses tqdm.write() to avoid interfering with progress bars."""
+    """Custom logging handler that uses tqdm.write() to avoid interfering with progress bars.
+
+    Registered as the console handler in Hydra's job-logging config
+    (configs/hydra/job_logging/tqdm.yaml), so Hydra owns logging setup while log records still
+    route through tqdm.write() and don't clobber progress bars.
+    """
 
     def emit(self, record):
         try:
@@ -11,17 +17,3 @@ class TqdmLoggingHandler(logging.Handler):
             tqdm.write(msg)
         except Exception:
             self.handleError(record)
-
-
-def setup_logging(level: int = logging.INFO) -> logging.Logger:
-    """
-    Configure logging to use tqdm-compatible handler.
-    Returns the root logger configured with the TqdmLoggingHandler.
-    """
-    logger = logging.getLogger()
-    logger.setLevel(level)
-    handler = TqdmLoggingHandler()
-    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s]: %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger

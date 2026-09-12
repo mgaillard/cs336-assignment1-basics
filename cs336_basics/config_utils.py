@@ -1,67 +1,44 @@
 from pathlib import Path
 
 import torch
-import yaml
+from hydra.core.config_store import ConfigStore
+from hydra.core.hydra_config import HydraConfig
+from omegaconf import OmegaConf
 
-from cs336_basics.config_schema import Config, ModelConfig, OptimConfig, SchedulerConfig, TrainerConfig, DataConfig
+from cs336_basics.config_schema import Config
 
 _DTYPE_MAP: dict[str, torch.dtype] = {"float32": torch.float32, "bfloat16": torch.bfloat16}
 
 
 def resolve_dtype(name: str) -> torch.dtype:
-    """Map a ModelDType config string (e.g. "float32", "bfloat16") to a torch.dtype."""
+    """Map a dtype config string (e.g. "float32", "bfloat16") to a torch.dtype."""
     return _DTYPE_MAP[name]
 
 
-def _deep_merge_dicts(base: dict, override: dict) -> dict:
-    """Recursively merge override dict into base dict, with override taking precedence."""
-    result = base.copy()
-    for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge_dicts(result[key], value)
-        else:
-            result[key] = value
-    return result
+def hydra_output_root() -> str:
+    """Return the top-level directory where Hydra places single-run outputs.
 
-
-def _load_config_dict(config_path: Path) -> dict:
-    """Load config dict from YAML file, recursively handling extends."""
-    config_path = Path(config_path)
-    with open(config_path) as f:
-        config_dict = yaml.safe_load(f) or {}
-
-    # Load and merge base config if extends is specified
-    if "extends" in config_dict:
-        extends_path = config_dict.pop("extends")
-        # Resolve path relative to current config file
-        if not Path(extends_path).is_absolute():
-            extends_path = config_path.parent / extends_path
-        base_dict = _load_config_dict(extends_path)
-        config_dict = _deep_merge_dicts(base_dict, config_dict)
-
-    return config_dict
-
-
-def load_config_from_yaml(config_path: Path) -> Config:
-    """Load training configuration from a YAML file.
-
-    Supports 'extends' property to inherit from a base config file.
-    Settings in the current file override base config settings, with deep merging
-    for nested properties.
+    This is the first path component of the (resolved) `hydra.run.dir`, e.g. "outputs" for the
+    default `outputs/<date>/<time>` layout, so it tracks a customized `hydra.run.dir` instead of
+    hard-coding "outputs". Only valid while a `@hydra.main` job is active.
     """
-    config_dict = _load_config_dict(config_path)
+    return Path(HydraConfig.get().run.dir).parts[0]
 
-    # Parse nested configs
-    model_dict = config_dict.pop("model", {})
-    optim_dict = config_dict.pop("optim", {})
-    scheduler_dict = config_dict.pop("scheduler", {})
-    trainer_dict = config_dict.pop("trainer", {})
-    data_dict = config_dict.pop("data", {})
 
-    model = ModelConfig(**model_dict) if model_dict else ModelConfig()
-    optim = OptimConfig(**optim_dict) if optim_dict else OptimConfig()
-    trainer = TrainerConfig(**trainer_dict) if trainer_dict else TrainerConfig()
-    scheduler = SchedulerConfig(**scheduler_dict) if scheduler_dict else SchedulerConfig()
-    data = DataConfig(**data_dict) if data_dict else DataConfig()
+def register_config() -> None:
+    """Register the structured config schema and custom resolvers with Hydra/OmegaConf.
 
-    return Config(model=model, optim=optim, scheduler=scheduler, trainer=trainer, data=data, **config_dict)
+    Import this module (or call this function) before invoking a `@hydra.main` entry point so that
+    `--config-name` files can attach the schema via `defaults: [base_config, _self_]` and use the
+    `${mul:...}` interpolation resolver.
+    """
+    cs = ConfigStore.instance()
+    cs.store(name="base_config", node=Config)
+    # Arithmetic resolver so coupled config values can be derived via interpolation, e.g.
+    # `eta_min: ${mul:${optim.lr},0.1}` keeps eta_min = lr / 10 across a `--multirun optim.lr=...` sweep.
+    if not OmegaConf.has_resolver("mul"):
+        OmegaConf.register_new_resolver("mul", lambda a, b: a * b)
+
+
+# Register on import so simply importing this module before `@hydra.main` is sufficient.
+register_config()

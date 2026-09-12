@@ -96,32 +96,51 @@ uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-train.txt 
 uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-valid.txt --output_file data/TinyStoriesV2-GPT4-valid-tokens.npy
 ```
 
-### Create folders for checkpoints and logs
+### Create the logs folder
 
 ```bash
-mkdir checkpoints
 mkdir logs
 ```
 
 ### Run training
 
+Configuration is managed with [Hydra](https://hydra.cc/): select a config file from `configs/`
+with `--config-name` (no `.yaml` extension) and override any field on the command line
+(e.g. `optim.lr=0.001`). For experiments, use the `--multirun` option (e.g. `--multirun optim.lr=0.0003,0.001,0.003`) 
+
 ```bash
-uv run cs336_basics/train.py --config configs/gpt_small.yaml
+uv run cs336_basics/train.py --config-name gpt_small
 # If you would like to follow training on Tensorboard, execute:
 uv run tensorboard --logdir ./logs --host=0.0.0.0
 ```
 
+Each run writes to its own Hydra output directory — `outputs/<date>/<time>/` for a single run, or
+`multirun/<date>/<time>/<job>/` for a `--multirun` sweep. That directory holds the run's
+checkpoints (`trainer.save_dir` is set to it), the `train.log` file, and `.hydra/config.yaml` (the
+fully resolved config), so runs never overwrite each other's checkpoints.
+
 ### Run inference
 
+By default (no `inference.checkpoint` given), inference loads the best-model checkpoint from the most
+recent training run, discovered automatically under `outputs/`:
+
 ```bash
-uv run cs336_basics/inference.py --config configs/gpt_small.yaml --prompt Once
+uv run cs336_basics/inference.py --config-name gpt_small inference.prompt=Once
+```
+
+To use a specific checkpoint instead, pass its path:
+
+```bash
+uv run cs336_basics/inference.py --config-name gpt_small \
+  inference.prompt=Once \
+  inference.checkpoint=outputs/<date>/<time>/checkpoint_best_model.safetensors
 ```
 
 ### Run benchmark
 
 ```bash
-uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype float32
-uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat16
+uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=float32
+uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=bfloat16
 ```
 
 ## TODOs:
@@ -132,7 +151,6 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
 - Model:
     - Profile the model execution
     - Profile the model memory consumption
-    - Use a better configuration solution instead of all parameters in __init__ methods
     - Reduce required GPU memory:
         - Try TF32 kernels with high precision for matmul.
     - Reduce number of parameters:
@@ -144,6 +162,7 @@ uv run cs336_basics/benchmark.py --config configs/gpt_small.yaml --dtype bfloat1
     - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
     - Better optimizer for LLM than Adam
     - About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
+    - Plot the loss versus the number of processed tokens (especially for the batch size experiment)
 - Inference:
     - Implement KV cache for inference
     - Implement a Diffuser like interface to the models

@@ -1,36 +1,23 @@
-from pathlib import Path
-from argparse import ArgumentParser
 import logging
 
-import torch
+import hydra
 import tiktoken
+import torch
+from omegaconf import DictConfig, OmegaConf
 
+from cs336_basics import config_utils  # noqa: F401  registers the schema + resolvers on import
+from cs336_basics.checkpoint import find_latest_best_checkpoint, load_inference_checkpoint
+from cs336_basics.config_schema import Config
+from cs336_basics.config_utils import hydra_output_root, resolve_dtype
 from cs336_basics.transformer_lm import TransformerLM
-from cs336_basics.checkpoint import load_inference_checkpoint
-from cs336_basics.config_utils import load_config_from_yaml, resolve_dtype
-from cs336_basics.logger import setup_logging
 
 
-def parse_args():
-    p = ArgumentParser()
-    p.add_argument("--checkpoint", type=str, default="checkpoints/checkpoint_best_model.safetensors")
-    p.add_argument("--config", type=Path, required=True)
-    p.add_argument("--prompt", type=str, default="Once")
-    p.add_argument("--top-p", default=0.95, type=float)
-    p.add_argument("--temperature", default=0.0, type=float)
-    p.add_argument("--max-steps", default=256, type=int)
-    p.add_argument("--device", default="cuda", type=str)
-    return p.parse_args()
-
-
-def main():
-    setup_logging()
-    args = parse_args()
-
-    # Load configuration
-    config = load_config_from_yaml(args.config)
+@hydra.main(version_base="1.3", config_path="../configs", config_name=None)
+def main(dict_cfg: DictConfig) -> None:
+    # Logging is configured by Hydra via the `hydra/job_logging: tqdm` override in the config.
+    config: Config = OmegaConf.to_object(dict_cfg)
     logging.info("Loading from config:\n" + str(config))
-    device = torch.device(args.device)
+    device = torch.device(config.trainer.device)
 
     # Create model
     model = TransformerLM(
@@ -47,9 +34,14 @@ def main():
         device=device,
     ).to(device)
 
-    # Load checkpoint (weights are stored in float32)
-    logging.info(f"Loading checkpoint from {args.checkpoint}")
-    load_inference_checkpoint(args.checkpoint, model)
+    # Load checkpoint (weights are stored in float32). When none is given, fall back to the latest
+    # best-model checkpoint from the most recent training run.
+    checkpoint = config.inference.checkpoint
+    if checkpoint is None:
+        checkpoint = find_latest_best_checkpoint(config.trainer.best_model_filename, hydra_output_root())
+        logging.info(f"No checkpoint given; using latest best checkpoint: {checkpoint}")
+    logging.info(f"Loading checkpoint from {checkpoint}")
+    load_inference_checkpoint(checkpoint, model)
     model.eval()
 
     if config.trainer.compile:
@@ -72,18 +64,19 @@ def main():
     logging.info(f"EOS token ID: {eos_token_id}")
 
     # Encode prompt
-    prompt_tokens = tokenizer.encode(args.prompt)
+    prompt_tokens = tokenizer.encode(config.inference.prompt)
     prompt = torch.tensor(prompt_tokens).unsqueeze(0).to(device)
-    logging.info(f"Prompt: {args.prompt}")
+    logging.info(f"Prompt: {config.inference.prompt}")
     logging.info(f"Prompt tokens: {prompt_tokens}")
 
     # Validate the prompt length does not exceed model's context length
-    if args.max_steps + len(prompt_tokens) > config.model.max_seq_len:
+    max_steps = config.inference.max_steps
+    if max_steps + len(prompt_tokens) > config.model.max_seq_len:
         logging.warning(
-            f"Prompt length ({len(prompt_tokens)}) + max_steps ({args.max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length."
+            f"Prompt length ({len(prompt_tokens)}) + max_steps ({max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length."
         )
-        args.max_steps = config.model.max_seq_len - len(prompt_tokens)
-        logging.info(f"Adjusted max_steps: {args.max_steps}")
+        max_steps = config.model.max_seq_len - len(prompt_tokens)
+        logging.info(f"Adjusted max_steps: {max_steps}")
 
     # Generate. Autocast (a no-op for float32) routes the precision-sensitive ops (RMSNorm, softmax)
     # through fp32 while the bfloat16 matmuls run in bfloat16, and avoids the RMSNorm dtype-mismatch
@@ -92,9 +85,9 @@ def main():
         generated = model.generate(
             prompt,
             eos_token_id,
-            top_p=args.top_p,
-            temperature=args.temperature,
-            max_steps=args.max_steps,
+            top_p=config.inference.top_p,
+            temperature=config.inference.temperature,
+            max_steps=max_steps,
         )
 
     # Decode and print

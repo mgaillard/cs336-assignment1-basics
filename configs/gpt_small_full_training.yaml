@@ -1,4 +1,6 @@
-extends: gpt_small.yaml
+defaults:
+  - gpt_small  # inherit the full gpt_small config (which itself attaches base_config)
+  - _self_     # this file's values override the inherited ones
 
 trainer:
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 327,680,000

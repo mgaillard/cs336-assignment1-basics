@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.14"
 dependencies = [
     "einops>=0.8",      # tensor operations
     "einx>=0.4",        # more general tensor operations
+    "hydra-core>=1.3",  # hierarchical configuration management (pulls in omegaconf)
     "jaxtyping>=0.3",   # type hints for pytorch/jax/numpy
     "numpy>=2.4",
     "psutil>=7",

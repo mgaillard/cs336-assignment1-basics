@@ -1,20 +1,23 @@
 """Benchmarking utilities for TransformerLM model performance."""
 
-import argparse
 import logging
-from pathlib import Path
 from timeit import default_timer
 
+import hydra
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.cuda.nvtx as nvtx
+import torch.nn as nn
+from omegaconf import DictConfig, OmegaConf
 
-from cs336_basics.config_utils import load_config_from_yaml, resolve_dtype
-from cs336_basics.logger import setup_logging
+from cs336_basics import (
+    attention,
+    config_utils,  # noqa: F401  registers the schema + resolvers on import
+    transformer_block,
+)
+from cs336_basics.config_schema import Config
+from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.transformer_lm import TransformerLM
-from cs336_basics import attention
-from cs336_basics import transformer_block
 
 
 def benchmark_forward_pass(
@@ -156,24 +159,6 @@ def benchmark_backward_pass(
     }
 
 
-def parse_args():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Benchmark TransformerLM model")
-    parser.add_argument("--config", type=Path, required=True, help="Path to model config YAML file")
-    parser.add_argument("--device", type=str, default="cuda", help="Device to run on (cuda or cpu)")
-    parser.add_argument("--num-warmup", type=int, default=5, help="Number of warmup passes")
-    parser.add_argument("--num-measure", type=int, default=10, help="Number of measurement passes")
-    parser.add_argument(
-        "--dtype",
-        type=str,
-        default="float32",
-        choices=["float32", "bfloat16"],
-        help="Precision to benchmark. 'bfloat16' runs under autocast (like training); run the "
-        "benchmark once per dtype to compare.",
-    )
-    return parser.parse_args()
-
-
 def patch_for_profiling():
     """
     Apply NVTX instrumentation patches to model components for profiling.
@@ -202,10 +187,10 @@ def patch_for_profiling():
     logging.info("Profiling patches applied to attention components")
 
 
-def main():
+@hydra.main(version_base="1.3", config_path="../configs", config_name=None)
+def main(dict_cfg: DictConfig) -> None:
     """Main benchmarking function."""
-    setup_logging()
-    args = parse_args()
+    # Logging is configured by Hydra via the `hydra/job_logging: tqdm` override in the config.
 
     # Show an error if CUDA is not available
     if not torch.cuda.is_available():
@@ -213,11 +198,11 @@ def main():
         exit(1)
 
     # Load configuration
-    config = load_config_from_yaml(args.config)
+    config: Config = OmegaConf.to_object(dict_cfg)
     logging.info("Loading from config:\n" + str(config))
 
     # Set device
-    device = torch.device(args.device)
+    device = torch.device(config.trainer.device)
     logging.info(f"Using device: {device}")
 
     # Apply profiling patches
@@ -248,9 +233,9 @@ def main():
 
     # Resolve the precision to benchmark. 'bfloat16' runs under autocast (mirroring the trainer);
     # 'float32' runs the model natively. Run the benchmark once per dtype to compare.
-    dtype = resolve_dtype(args.dtype)
+    dtype = resolve_dtype(config.benchmark.dtype)
     autocast_dtype = dtype if dtype != torch.float32 else None
-    logging.info(f"Benchmarking dtype: {args.dtype}")
+    logging.info(f"Benchmarking dtype: {config.benchmark.dtype}")
 
     # Benchmark forward pass
     logging.info("Starting forward pass benchmark...")
@@ -259,8 +244,8 @@ def main():
         config.model.vocab_size,
         batch_size=config.data.batch_size,
         seq_len=config.data.context_length,
-        num_warmup=args.num_warmup,
-        num_measure=args.num_measure,
+        num_warmup=config.benchmark.num_warmup,
+        num_measure=config.benchmark.num_measure,
         device=device,
         autocast_dtype=autocast_dtype,
     )
@@ -280,8 +265,8 @@ def main():
         loss_fn,
         batch_size=config.data.batch_size,
         seq_len=config.data.context_length,
-        num_warmup=args.num_warmup,
-        num_measure=args.num_measure,
+        num_warmup=config.benchmark.num_warmup,
+        num_measure=config.benchmark.num_measure,
         device=device,
         autocast_dtype=autocast_dtype,
     )
@@ -295,7 +280,7 @@ def main():
 
     # Log summary
     logging.info(
-        f"\n=== Benchmark Summary ({args.dtype}) ===\n"
+        f"\n=== Benchmark Summary ({config.benchmark.dtype}) ===\n"
         f"Batch size: {config.data.batch_size}\n"
         f"Sequence length: {config.data.context_length}\n"
         f"Forward pass (avg): {forward_stats['mean_ms']:.3f} ms\n"
