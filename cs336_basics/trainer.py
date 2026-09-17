@@ -9,7 +9,7 @@ import torch
 from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, LRScheduler, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
 
-from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
+from cs336_basics.checkpoint import pretrained_checkpoint_dirname, save_checkpoint, load_checkpoint
 from cs336_basics.config_schema import Config
 from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.dataset import MemoryMappedDataset
@@ -69,19 +69,7 @@ class Trainer:
         Create and return a new instance of the TransformerLM model based on the config.
         Should be called in __init__ before optimizer and scheduler are initialized.
         """
-        model = TransformerLM(
-            vocab_size=self.config.model.vocab_size,
-            num_layers=self.config.model.num_layers,
-            d_model=self.config.model.d_model,
-            num_heads=self.config.model.num_heads,
-            d_ff=self.config.model.d_ff,
-            eps=self.config.model.eps,
-            max_seq_len=self.config.model.max_seq_len,
-            theta=self.config.model.theta,
-            use_pytorch_sdpa=self.config.model.use_pytorch_sdpa,
-            tie_embeddings=self.config.model.tie_embeddings,
-            device=self.device,
-        ).to(self.device)
+        model = TransformerLM(self.config.model, device=self.device).to(self.device)
 
         model.print_num_parameters()
 
@@ -293,6 +281,13 @@ class Trainer:
                     best_val_loss = val_loss
                     checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
                     self.save_state(checkpoint_path)
+
+                    # Also save a standalone inference checkpoint (weights + ModelConfig, no
+                    # optimizer state) that can later be reloaded with TransformerLM.from_pretrained().
+                    pretrained_dir = self._get_path_for_checkpoint(
+                        pretrained_checkpoint_dirname(self.config.trainer.best_model_filename)
+                    )
+                    self.model.save_pretrained(pretrained_dir)
 
             # Save checkpoint every save_interval steps
             if self.iteration % self.config.trainer.save_interval == 0 and self.iteration > 0:

@@ -209,19 +209,7 @@ def main(dict_cfg: DictConfig) -> None:
     patch_for_profiling()
 
     # Create model
-    model = TransformerLM(
-        vocab_size=config.model.vocab_size,
-        num_layers=config.model.num_layers,
-        d_model=config.model.d_model,
-        num_heads=config.model.num_heads,
-        d_ff=config.model.d_ff,
-        eps=config.model.eps,
-        max_seq_len=config.model.max_seq_len,
-        theta=config.model.theta,
-        use_pytorch_sdpa=config.model.use_pytorch_sdpa,
-        tie_embeddings=config.model.tie_embeddings,
-        device=device,
-    ).to(device)
+    model = TransformerLM(config.model, device=device).to(device)
 
     if config.trainer.compile:
         logging.info("Compiling model with torch.compile() ...")

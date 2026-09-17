@@ -6,7 +6,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from cs336_basics import config_utils  # noqa: F401  registers the schema + resolvers on import
-from cs336_basics.checkpoint import find_latest_best_checkpoint, load_inference_checkpoint
+from cs336_basics.checkpoint import find_latest_best_pretrained_checkpoint
 from cs336_basics.config_schema import Config
 from cs336_basics.config_utils import hydra_output_root, resolve_dtype
 from cs336_basics.transformer_lm import TransformerLM
@@ -19,29 +19,15 @@ def main(dict_cfg: DictConfig) -> None:
     logging.info("Loading from config:\n" + str(config))
     device = torch.device(config.trainer.device)
 
-    # Create model
-    model = TransformerLM(
-        vocab_size=config.model.vocab_size,
-        num_layers=config.model.num_layers,
-        d_model=config.model.d_model,
-        num_heads=config.model.num_heads,
-        d_ff=config.model.d_ff,
-        eps=config.model.eps,
-        max_seq_len=config.model.max_seq_len,
-        theta=config.model.theta,
-        use_pytorch_sdpa=config.model.use_pytorch_sdpa,
-        tie_embeddings=config.model.tie_embeddings,
-        device=device,
-    ).to(device)
-
-    # Load checkpoint (weights are stored in float32). When none is given, fall back to the latest
+    # Load the model (weights are stored in float32) from a pretrained checkpoint directory, as
+    # written by TransformerLM.save_pretrained(). When none is given, fall back to the latest
     # best-model checkpoint from the most recent training run.
     checkpoint = config.inference.checkpoint
     if checkpoint is None:
-        checkpoint = find_latest_best_checkpoint(config.trainer.best_model_filename, hydra_output_root())
+        checkpoint = find_latest_best_pretrained_checkpoint(config.trainer.best_model_filename, hydra_output_root())
         logging.info(f"No checkpoint given; using latest best checkpoint: {checkpoint}")
     logging.info(f"Loading checkpoint from {checkpoint}")
-    load_inference_checkpoint(checkpoint, model)
+    model = TransformerLM.from_pretrained(checkpoint, device=device)
     model.eval()
 
     if config.trainer.compile:
@@ -71,11 +57,11 @@ def main(dict_cfg: DictConfig) -> None:
 
     # Validate the prompt length does not exceed model's context length
     max_steps = config.inference.max_steps
-    if max_steps + len(prompt_tokens) > config.model.max_seq_len:
+    if max_steps + len(prompt_tokens) > model.config.max_seq_len:
         logging.warning(
-            f"Prompt length ({len(prompt_tokens)}) + max_steps ({max_steps}) exceeds model's max_seq_len ({config.model.max_seq_len}). Reducing max_steps to fit within context length."
+            f"Prompt length ({len(prompt_tokens)}) + max_steps ({max_steps}) exceeds model's max_seq_len ({model.config.max_seq_len}). Reducing max_steps to fit within context length."
         )
-        max_steps = config.model.max_seq_len - len(prompt_tokens)
+        max_steps = model.config.max_seq_len - len(prompt_tokens)
         logging.info(f"Adjusted max_steps: {max_steps}")
 
     # Generate. Autocast (a no-op for float32) routes the precision-sensitive ops (RMSNorm, softmax)

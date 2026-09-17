@@ -1,42 +1,42 @@
+import os
+from pathlib import Path
+
+from omegaconf import OmegaConf
+from safetensors.torch import load_model, save_model
 from tqdm import tqdm
 
 import torch
 from torch import nn
 
+from cs336_basics.config_schema import ModelConfig
 from cs336_basics.transformer_block import TransformerBlockPreNorm
 
 
 class TransformerLM(nn.Module):
     def __init__(
         self,
-        vocab_size: int,
-        num_layers: int,
-        d_model: int,
-        num_heads: int,
-        d_ff: int,
-        eps: float,
-        max_seq_len: int,
-        theta: float,
-        use_pytorch_sdpa: bool,
-        tie_embeddings: bool,
+        model_config: ModelConfig,
         device: torch.device = None,
         dtype: torch.dtype = None,
     ) -> None:
         """
         Construct the TransformerBlock module.
         Parameters:
-        - vocab_size: int Size of the vocabulary. Necessary for determining the dimensionality of the token embedding matrix.
-        - num_layers: int Number of Transformer blocks to stack.
-        - d_model: int Dimensionality of the Transformer block inputs.
-        - num_heads: int Number of heads to use in multi-head self-attention.
-        - d_ff: int Dimensionality of the position-wise feed-forward inner layer.
-        - eps: float Epsilon value for numerical stability
-        - max_seq_len: int Maximum sequence length for RoPE.
-        - theta: float Base frequency for RoPE.
-        - use_pytorch_sdpa: bool Whether to use torch's fused scaled_dot_product_attention.
-        - tie_embeddings: bool Whether to tie the output projection weight to the token embedding weight.
+        - model_config: ModelConfig Hyperparameters of the model (vocab_size, num_layers, d_model,
+          num_heads, d_ff, eps, max_seq_len, theta, use_pytorch_sdpa, tie_embeddings).
         """
         super().__init__()
+
+        vocab_size = model_config.vocab_size
+        num_layers = model_config.num_layers
+        d_model = model_config.d_model
+        num_heads = model_config.num_heads
+        d_ff = model_config.d_ff
+        eps = model_config.eps
+        max_seq_len = model_config.max_seq_len
+        theta = model_config.theta
+        use_pytorch_sdpa = model_config.use_pytorch_sdpa
+        tie_embeddings = model_config.tie_embeddings
 
         # Parameters of the model
         self.num_layers = num_layers
@@ -66,6 +66,35 @@ class TransformerLM(nn.Module):
         self.output_proj = nn.Linear(d_model, vocab_size, bias=False, device=device, dtype=dtype)
         if tie_embeddings:
             self.embedding.weight = self.output_proj.weight
+
+        # Save the config for later when we use save_pretrained
+        self.config = model_config
+
+    def save_pretrained(self, save_directory: os.PathLike | str) -> None:
+        """Save the model weights and its `ModelConfig` to `save_directory` so it can be
+        reconstructed later with `from_pretrained`. Writes `model.safetensors` and `config.yaml`."""
+        save_directory = Path(save_directory)
+        save_directory.mkdir(parents=True, exist_ok=True)
+        # `save_model` (rather than `save_file(self.state_dict(), ...)`) is required because some
+        # parameters may share storage (e.g. tied embedding/output projection weights): safetensors
+        # refuses to write the same storage under two keys, and `save_model` handles that dedup.
+        save_model(self, str(save_directory / "model.safetensors"))
+        OmegaConf.save(config=self.config, f=str(save_directory / "config.yaml"))
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        load_directory: os.PathLike | str,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> "TransformerLM":
+        """Reconstruct a `TransformerLM` from a directory previously written by `save_pretrained`."""
+        load_directory = Path(load_directory)
+        loaded = OmegaConf.load(load_directory / "config.yaml")
+        config: ModelConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(ModelConfig), loaded))
+        model = cls(config, device=device, dtype=dtype)
+        load_model(model, str(load_directory / "model.safetensors"))
+        return model
 
     def cast_weights(self, dtype: torch.dtype) -> "TransformerLM":
         """Recursively cast the large weight matrices (token embedding, transformer-block

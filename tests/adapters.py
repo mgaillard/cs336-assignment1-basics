@@ -16,6 +16,7 @@ from cs336_basics.assignment.silu import silu
 from cs336_basics.assignment.tokenizer import Tokenizer
 from cs336_basics.attention import scaled_dot_product_attention, CausalMultiHeadSelfAttention
 from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
+from cs336_basics.config_schema import ModelConfig
 from cs336_basics.positionwise_feedforward import PositionWiseFeedForward
 from cs336_basics.assignment.rmsnorm import RMSNorm
 from cs336_basics.rope import RotaryPositionalEmbedding
@@ -386,18 +387,19 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    transformer_lm = TransformerLM(
-        vocab_size,
-        num_layers,
-        d_model,
-        num_heads,
-        d_ff,
+    model_config = ModelConfig(
+        vocab_size=vocab_size,
+        num_layers=num_layers,
+        d_model=d_model,
+        num_heads=num_heads,
+        d_ff=d_ff,
         eps=1e-5,
         max_seq_len=context_length,
         theta=rope_theta,
         use_pytorch_sdpa=False,
         tie_embeddings=False,
     )
+    transformer_lm = TransformerLM(model_config)
     state_dict = {
         "embedding.weight": weights["token_embeddings.weight"],
         "final_norm.weight": weights["ln_final.weight"],
