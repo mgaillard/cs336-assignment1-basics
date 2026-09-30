@@ -3,13 +3,13 @@ import logging
 import math
 import os
 from pathlib import Path
-from tqdm import tqdm
 
 import torch
 from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, LRScheduler, SequentialLR
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
-from cs336_basics.checkpoint import pretrained_checkpoint_dirname, save_checkpoint, load_checkpoint
+from cs336_basics.checkpoint import load_checkpoint, pretrained_checkpoint_dirname, save_checkpoint
 from cs336_basics.config_schema import Config
 from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.dataset import MemoryMappedDataset
@@ -28,7 +28,6 @@ class Trainer:
         self.config = config
         logging.info("Loading from config:\n" + str(config))
 
-        self._init_tensorboard()
         self.device = self._init_device()
         self.dtype = resolve_dtype(self.config.trainer.dtype)
         self.use_amp = self.dtype != torch.float32
@@ -39,21 +38,32 @@ class Trainer:
         self._init_datasets()
         self.iteration = 0
         self.tokens_processed = 0
+        self.best_val_loss = float("inf")
+        resume_log_dir = None
         if config.trainer.load_from:
-            self.load_state(config.trainer.load_from)
+            resume_log_dir = self.load_state(config.trainer.load_from)
+        # Initialized after loading so a resumed run keeps writing to the same TensorBoard run.
+        self._init_tensorboard(resume_log_dir)
 
-    def _init_tensorboard(self) -> None:
+    def _init_tensorboard(self, resume_log_dir: str | None = None) -> None:
         """
         Initialize the TensorBoard writer if tensorboard_log_dir is specified in config.
-        Should be called in __init__ after other initialization methods.
+        When resuming, reuses the previous run's log directory (if it still exists) and purges any
+        events logged after the checkpoint so curves don't overlap.
         """
         self.writer = None
-        if self.config.trainer.tensorboard_log_dir:
+        if not self.config.trainer.tensorboard_log_dir:
+            return
+        if resume_log_dir is not None and os.path.isdir(resume_log_dir):
+            log_dir = Path(resume_log_dir)
+            self.writer = SummaryWriter(log_dir=str(log_dir), purge_step=self.iteration)
+        else:
             # Append timestamp to log directory for multiple run differentiation
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             log_dir = Path(self.config.trainer.tensorboard_log_dir) / timestamp
             self.writer = SummaryWriter(log_dir=str(log_dir))
-            logging.info(f"TensorBoard writer initialized with log directory: {log_dir}")
+        self.tensorboard_log_dir = str(log_dir)
+        logging.info(f"TensorBoard writer initialized with log directory: {log_dir}")
 
     def _init_device(self) -> torch.device:
         """
@@ -161,35 +171,51 @@ class Trainer:
         checkpoint_path = save_dir / checkpoint_name
         return checkpoint_path
 
-    def load_state(self, checkpoint_path: Path):
+    def load_state(self, checkpoint_path: Path | str) -> str | None:
         """
-        Load model and optimizer state from a checkpoint file.
-        Updates the model, optimizer, and scheduler states accordingly.
+        Restore model, optimizer, LR scheduler and trainer bookkeeping from a checkpoint file.
         Should be called before training loop starts if resuming from a checkpoint.
+        Returns the TensorBoard log directory of the original run, if recorded.
         """
-        if os.path.isfile(checkpoint_path):
-            logging.info(f"Loading checkpoint from {checkpoint_path} ...")
-            checkpoint_step = load_checkpoint(checkpoint_path, self.model, self.optimizer)
-            # The start step is one after the loaded checkpoint
-            self.iteration = checkpoint_step + 1
-            logging.info(f"Resuming training from step {self.iteration}")
-        else:
-            logging.warning(f"Checkpoint file {checkpoint_path} not found. Starting from scratch.")
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(f"Checkpoint file {checkpoint_path} not found (trainer.load_from).")
 
-    def save_state(self, checkpoint_path: Path | None = None):
+        logging.info(f"Loading checkpoint from {checkpoint_path} ...")
+        checkpoint_step, extra_state = load_checkpoint(checkpoint_path, self.model, self.optimizer, self.scheduler)
+        # The start step is one after the loaded checkpoint
+        self.iteration = checkpoint_step + 1
+
+        self.tokens_processed = extra_state.get("tokens_processed", 0)
+        self.best_val_loss = extra_state.get("best_val_loss", float("inf"))
+        logging.info(
+            f"Resuming training from step {self.iteration} (lr={self.scheduler.get_last_lr()[0]:.3e}, "
+            f"best_val_loss={self.best_val_loss:.4f}, tokens_processed={self.tokens_processed})"
+        )
+        return extra_state.get("tensorboard_log_dir")
+
+    def save_state(self, checkpoint_path: Path | None = None, iteration: int | None = None):
         """
-        Save model and optimizer state to a checkpoint file.
+        Save model, optimizer, LR scheduler and trainer bookkeeping to a checkpoint file.
+        `iteration` is the last completed training step (defaults to self.iteration).
         Should be called during training loop at save intervals and at the end of training.
         """
+        if iteration is None:
+            iteration = self.iteration
+
         if checkpoint_path is None and self.config.trainer.save_dir:
-            checkpoint_path = self._get_path_for_checkpoint(f"checkpoint_step_{self.iteration}.safetensors")
+            checkpoint_path = self._get_path_for_checkpoint(f"checkpoint_step_{iteration}.pt")
 
         assert checkpoint_path is not None, (
             "Checkpoint path must be specified either in config with save_dir or as an argument to save_state()"
         )
 
-        logging.info(f"Saving checkpoint to {checkpoint_path} at iteration={self.iteration}...")
-        save_checkpoint(self.model, self.optimizer, self.iteration, checkpoint_path)
+        extra_state = {
+            "tokens_processed": self.tokens_processed,
+            "best_val_loss": self.best_val_loss,
+            "tensorboard_log_dir": getattr(self, "tensorboard_log_dir", None),
+        }
+        logging.info(f"Saving checkpoint to {checkpoint_path} at iteration={iteration}...")
+        save_checkpoint(self.model, self.optimizer, iteration, checkpoint_path, self.scheduler, extra_state)
 
     def validate_step(self) -> dict:
         """
@@ -255,7 +281,6 @@ class Trainer:
 
         # Progress bar for training steps between log intervals
         pbar = tqdm(total=self.config.trainer.log_interval)
-        best_val_loss = float("inf")
 
         while self.iteration < self.config.trainer.max_steps:
             # Training step
@@ -277,8 +302,8 @@ class Trainer:
                 self.log(**log_data)
 
                 val_loss = val_metrics["loss_validation"]
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
+                if val_loss < self.best_val_loss:
+                    self.best_val_loss = val_loss
                     checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
                     self.save_state(checkpoint_path)
 
@@ -296,8 +321,6 @@ class Trainer:
             self.iteration += 1
 
         pbar.close()
-
-        self.save_state()
 
         # Close TensorBoard writer
         if self.writer is not None:

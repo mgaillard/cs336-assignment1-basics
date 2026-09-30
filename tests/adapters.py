@@ -627,7 +627,8 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    return load_checkpoint(src, model, optimizer)
+    iteration, _ = load_checkpoint(src, model, optimizer)
+    return iteration
 
 
 def get_tokenizer(

@@ -119,6 +119,38 @@ Each run writes to its own Hydra output directory — `outputs/<date>/<time>/` f
 checkpoints (`trainer.save_dir` is set to it), the `train.log` file, and `.hydra/config.yaml` (the
 fully resolved config), so runs never overwrite each other's checkpoints.
 
+### Resume training from a checkpoint
+
+There are two kinds of checkpoints:
+
+- **Resume checkpoints** (`.pt`, PyTorch format) hold everything needed to continue training: model
+  weights, AdamW state, LR scheduler position, best validation loss and processed-token count. They
+  are saved every `trainer.save_interval` steps as `checkpoint_step_<N>.pt`, plus
+  `checkpoint_best_model.pt` whenever the validation loss improves.
+- **Inference checkpoints** (safetensors) contain only the model: a `checkpoint_best_model/`
+  directory with `model.safetensors` and `config.yaml`, written alongside `checkpoint_best_model.pt`
+  (see [Run inference](#run-inference)). They cannot be used to resume training.
+
+To continue an interrupted run, pass a resume checkpoint to `trainer.load_from`, using the same config
+as the original run:
+
+```bash
+uv run cs336_basics/train.py --config-name gpt_small \
+  trainer.load_from=outputs/<date>/<time>/checkpoint_step_<N>.pt
+```
+
+Training restarts at step `N + 1`. TensorBoard logging continues in the original run's log directory,
+and any events logged after the checkpoint are discarded.
+
+Things to keep in mind:
+
+- The model architecture (`model.*`) must match the checkpoint.
+- `trainer.max_steps` is the **total** number of steps, not additional steps. Raise it to train
+  longer than the original run.
+- The learning rate and schedule (`optim.lr`, `scheduler.*`) are taken from the checkpoint, so
+  overriding them on the command line has no effect when resuming.
+- The resumed run gets a new Hydra output directory, and new checkpoints are written there.
+
 ### Run inference
 
 By default (no `inference.checkpoint` given), inference loads the best-model checkpoint from the most
@@ -128,12 +160,13 @@ recent training run, discovered automatically under `outputs/`:
 uv run cs336_basics/inference.py --config-name gpt_small inference.prompt=Once
 ```
 
-To use a specific checkpoint instead, pass its path:
+To use a specific checkpoint instead, pass its directory (the one containing `model.safetensors` and
+`config.yaml`):
 
 ```bash
 uv run cs336_basics/inference.py --config-name gpt_small \
   inference.prompt=Once \
-  inference.checkpoint=outputs/<date>/<time>/checkpoint_best_model.safetensors
+  inference.checkpoint=outputs/<date>/<time>/checkpoint_best_model
 ```
 
 ### Run benchmark
@@ -158,9 +191,8 @@ uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=bfloat1
     - Better efficiency of use of parameters:
         - Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
 - Training:
-    - Allow the trainer to start training from an existing checkpoint
     - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
-    - Better optimizer for LLM than Adam
+    - Better optimizer for LLM than AdamW
     - About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
     - Plot the loss versus the number of processed tokens (especially for the batch size experiment)
 - Inference:

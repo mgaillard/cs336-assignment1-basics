@@ -78,8 +78,9 @@ class TrainerConfig:
     tensorboard_log_dir: str = "logs"
     # directory to save checkpoints
     save_dir: str = "checkpoints"
-    # filename for the best model checkpoint
-    best_model_filename: str = "checkpoint_best_model.safetensors"
+    # filename for the best model resume checkpoint (.pt); the safetensors inference export is
+    # written next to it in a directory named after its stem (e.g. "checkpoint_best_model/")
+    best_model_filename: str = "checkpoint_best_model.pt"
     # save every n steps
     save_interval: int = 100
     # log train metrics every n steps

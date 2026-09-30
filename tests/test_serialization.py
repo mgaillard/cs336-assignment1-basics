@@ -80,7 +80,7 @@ def test_checkpointing(tmp_path):
         optimizer.step()
         it += 1
 
-    serialization_path = tmp_path / "checkpoint.safetensors"
+    serialization_path = tmp_path / "checkpoint.pt"
     # Save the model
     run_save_checkpoint(
         model,

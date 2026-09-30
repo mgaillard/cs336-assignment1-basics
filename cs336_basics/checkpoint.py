@@ -1,98 +1,57 @@
-import json
 import os
 from pathlib import Path
+from typing import IO, BinaryIO
 
 import torch
 import torch.nn as nn
-from safetensors.torch import load_file, load_model, save_file, save_model
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
+
+# Resume-training checkpoints (model + optimizer + scheduler + trainer state) are plain PyTorch `.pt`
+# files. Models exported for inference use `TransformerLM.save_pretrained` (safetensors) instead.
 
 
-def _encode_tuples(obj):
-    if isinstance(obj, tuple):
-        return {"__tuple__": True, "items": [_encode_tuples(v) for v in obj]}
-    if isinstance(obj, list):
-        return [_encode_tuples(v) for v in obj]
-    if isinstance(obj, dict):
-        return {k: _encode_tuples(v) for k, v in obj.items()}
-    return obj
-
-
-def _decode_tuples(obj):
-    if isinstance(obj, dict):
-        if obj.get("__tuple__"):
-            return tuple(_decode_tuples(v) for v in obj["items"])
-        return {k: _decode_tuples(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_decode_tuples(v) for v in obj]
-    return obj
-
-
-def _flatten_optimizer_state_dict(optimizer_state_dict: dict) -> tuple[dict[str, torch.Tensor], dict]:
-    tensors: dict[str, torch.Tensor] = {}
-    non_tensor_state: dict[str, dict] = {}
-    for param_id, param_state in optimizer_state_dict["state"].items():
-        non_tensor_state[str(param_id)] = {}
-        for key, value in param_state.items():
-            if torch.is_tensor(value):
-                tensors[f"state.{param_id}.{key}"] = value.contiguous()
-            else:
-                non_tensor_state[str(param_id)][key] = value
-    metadata = {
-        "param_groups": optimizer_state_dict["param_groups"],
-        "non_tensor_state": non_tensor_state,
+def save_checkpoint(
+    model: nn.Module,
+    optimizer: Optimizer,
+    iteration: int,
+    out: os.PathLike | str | BinaryIO | IO[bytes],
+    scheduler: LRScheduler | None = None,
+    extra_state: dict | None = None,
+):
+    """Save everything needed to resume training: model, optimizer and (optionally) LR scheduler
+    state, the last completed `iteration`, and an arbitrary `extra_state` dict (trainer bookkeeping)."""
+    checkpoint = {
+        "iteration": iteration,
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict() if scheduler is not None else None,
+        "extra_state": extra_state or {},
     }
-    return tensors, metadata
+    torch.save(checkpoint, out)
 
 
-def _unflatten_optimizer_state_dict(tensors: dict[str, torch.Tensor], metadata: dict) -> dict:
-    state: dict[int, dict] = {}
-    for key, value in tensors.items():
-        _, param_id, param_key = key.split(".", 2)
-        state.setdefault(int(param_id), {})[param_key] = value
-    for param_id, non_tensor_values in metadata["non_tensor_state"].items():
-        state.setdefault(int(param_id), {}).update(non_tensor_values)
-    return {
-        "state": state,
-        "param_groups": metadata["param_groups"],
-    }
-
-
-def _read_metadata(src: os.PathLike | str) -> dict:
-    with open(src, "rb") as f:
-        header_size = int.from_bytes(f.read(8), "little")
-        header = json.loads(f.read(header_size))
-    return header["__metadata__"]
-
-
-def _optimizer_path(model_path: os.PathLike | str) -> Path:
-    model_path = Path(model_path)
-    return model_path.with_suffix(f".optimizer{model_path.suffix}")
-
-
-def save_checkpoint(model: nn.Module, optimizer: Optimizer, iteration: int, out: os.PathLike | str):
-    # `save_model` (rather than `save_file(model.state_dict(), ...)`) is required because some
-    # parameters may share storage (e.g. tied embedding/output projection weights): safetensors
-    # refuses to write the same storage under two keys, and `save_model` handles that dedup.
-    save_model(model, str(out))
-
-    optimizer_tensors, optimizer_metadata = _flatten_optimizer_state_dict(optimizer.state_dict())
-    optimizer_metadata_json = {
-        "iteration": json.dumps(iteration),
-        "optimizer": json.dumps(_encode_tuples(optimizer_metadata)),
-    }
-    save_file(optimizer_tensors, _optimizer_path(out), metadata=optimizer_metadata_json)
-
-
-def load_checkpoint(src: os.PathLike | str, model: nn.Module, optimizer: Optimizer) -> int:
-    load_model(model, src)
-
-    optimizer_tensors = load_file(_optimizer_path(src))
-    metadata = _read_metadata(_optimizer_path(src))
-    optimizer_metadata = _decode_tuples(json.loads(metadata["optimizer"]))
-    optimizer.load_state_dict(_unflatten_optimizer_state_dict(optimizer_tensors, optimizer_metadata))
-
-    return json.loads(metadata["iteration"])
+def load_checkpoint(
+    src: os.PathLike | str | BinaryIO | IO[bytes],
+    model: nn.Module,
+    optimizer: Optimizer,
+    scheduler: LRScheduler | None = None,
+) -> tuple[int, dict]:
+    """Restore model, optimizer and (if given) LR scheduler state from a checkpoint written by
+    `save_checkpoint`. Returns `(iteration, extra_state)`."""
+    checkpoint = torch.load(src, map_location="cpu", weights_only=True)
+    if not isinstance(checkpoint, dict) or not {"iteration", "model", "optimizer"} <= checkpoint.keys():
+        raise ValueError(
+            f"{src} is not a resume checkpoint written by save_checkpoint() (expected a .pt file, "
+            f"safetensors model exports cannot be used to resume training)."
+        )
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    if scheduler is not None:
+        if checkpoint["scheduler"] is None:
+            raise ValueError(f"Checkpoint {src} has no scheduler state.")
+        scheduler.load_state_dict(checkpoint["scheduler"])
+    return checkpoint["iteration"], checkpoint["extra_state"]
 
 
 def pretrained_checkpoint_dirname(best_model_filename: str) -> str:
