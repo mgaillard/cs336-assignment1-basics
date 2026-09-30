@@ -47,21 +47,29 @@ class Trainer:
 
     def _init_tensorboard(self, resume_log_dir: str | None = None) -> None:
         """
-        Initialize the TensorBoard writer if tensorboard_log_dir is specified in config.
+        Initialize the TensorBoard writers if tensorboard_log_dir is specified in config:
+        - `self.writer` logs metrics against the training step.
+        - `self.tokens_writer` logs losses against the number of processed kilo-tokens, in a separate
+          `tokens/` sub-run (TensorBoard purges events by step value across a whole run, so the two
+          x-axes must not share an event file).
         When resuming, reuses the previous run's log directory (if it still exists) and purges any
         events logged after the checkpoint so curves don't overlap.
         """
         self.writer = None
+        self.tokens_writer = None
         if not self.config.trainer.tensorboard_log_dir:
             return
         if resume_log_dir is not None and os.path.isdir(resume_log_dir):
             log_dir = Path(resume_log_dir)
             self.writer = SummaryWriter(log_dir=str(log_dir), purge_step=self.iteration)
+            # Events at the checkpoint's own kilo-token value belong to the checkpointed step, so keep them.
+            self.tokens_writer = SummaryWriter(log_dir=str(log_dir / "tokens"), purge_step=self._ktokens() + 1)
         else:
             # Append timestamp to log directory for multiple run differentiation
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             log_dir = Path(self.config.trainer.tensorboard_log_dir) / timestamp
             self.writer = SummaryWriter(log_dir=str(log_dir))
+            self.tokens_writer = SummaryWriter(log_dir=str(log_dir / "tokens"))
         self.tensorboard_log_dir = str(log_dir)
         logging.info(f"TensorBoard writer initialized with log directory: {log_dir}")
 
@@ -146,7 +154,9 @@ class Trainer:
         """
         Log metrics to console and TensorBoard.
         Keys without 'log' in their name are logged to console.
-        All keys are logged to TensorBoard with formatted names.
+        All keys are logged to TensorBoard with formatted names, against the training step.
+        Loss keys are additionally logged against the number of processed kilo-tokens
+        (e.g. "loss_training" -> "Loss vs kTokens/Training").
         """
         for k, v in data.items():
             if "log" not in k:
@@ -157,6 +167,13 @@ class Trainer:
                 # e.g., "loss_training" -> "Loss/Training"
                 formatted_key = "/".join(word.capitalize() for word in k.split("_"))
                 self.writer.add_scalar(formatted_key, v, self.iteration)
+                if k.startswith("loss_"):
+                    tokens_key = formatted_key.replace("Loss/", "Loss vs kTokens/", 1)
+                    self.tokens_writer.add_scalar(tokens_key, v, self._ktokens())
+
+    def _ktokens(self) -> int:
+        """Number of processed training tokens in thousands (TensorBoard steps must be integers)."""
+        return self.tokens_processed // 1000
 
     def _get_path_for_checkpoint(self, checkpoint_name: str) -> Path:
         """
@@ -322,8 +339,9 @@ class Trainer:
 
         pbar.close()
 
-        # Close TensorBoard writer
+        # Close TensorBoard writers
         if self.writer is not None:
             self.writer.close()
+            self.tokens_writer.close()
 
         logging.info("Training finished.")

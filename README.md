@@ -119,6 +119,12 @@ Each run writes to its own Hydra output directory — `outputs/<date>/<time>/` f
 checkpoints (`trainer.save_dir` is set to it), the `train.log` file, and `.hydra/config.yaml` (the
 fully resolved config), so runs never overwrite each other's checkpoints.
 
+In TensorBoard, metrics are plotted against the training step. Training and validation losses are
+also plotted against the number of processed training tokens in thousands, under
+**Loss vs kTokens**. Use these plots to compare runs with different batch sizes. They are written to
+a `tokens/` sub-run of each run's log directory, so they appear as `<run>/tokens` in the run
+selector.
+
 ### Resume training from a checkpoint
 
 There are two kinds of checkpoints:
@@ -194,7 +200,6 @@ uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=bfloat1
     - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
     - Better optimizer for LLM than AdamW
     - About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
-    - Plot the loss versus the number of processed tokens (especially for the batch size experiment)
 - Inference:
     - Implement KV cache for inference
     - Implement a Diffuser like interface to the models
