@@ -48,9 +48,11 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         self.d_v = d_model // num_heads
         self.num_heads = num_heads
         self.use_pytorch_sdpa = use_pytorch_sdpa
-        self.q_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device, dtype=dtype)
-        self.k_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device, dtype=dtype)
-        self.v_proj = torch.nn.Linear(self.d_v * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        # Fused Q/K/V projection: a single matmul instead of three (Q, K and V all have width d_model)
+        # self.q_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        # self.k_proj = torch.nn.Linear(self.d_k * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        # self.v_proj = torch.nn.Linear(self.d_v * num_heads, d_model, bias=False, device=device, dtype=dtype)
+        self.qkv_proj = torch.nn.Linear(d_model, 3 * d_model, bias=False, device=device, dtype=dtype)
         self.o_proj = torch.nn.Linear(d_model, self.d_v * num_heads, bias=False, device=device, dtype=dtype)
         # RoPE (Rotary Positional Embedding) for the attention mechanism
         self.rope = RotaryPositionalEmbedding(self.d_k, max_seq_len, theta, device=device, dtype=dtype)
@@ -58,9 +60,7 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
     def cast_weights(self, dtype: torch.dtype) -> "CausalMultiHeadSelfAttention":
         """Cast the Q/K/V/O projection weights to `dtype`. The RoPE buffer is intentionally left in
         float32 (it is precision-sensitive and dtype-transparent in its forward). Returns self."""
-        self.q_proj.to(dtype)
-        self.k_proj.to(dtype)
-        self.v_proj.to(dtype)
+        self.qkv_proj.to(dtype)
         self.o_proj.to(dtype)
         return self
 
@@ -73,9 +73,7 @@ class CausalMultiHeadSelfAttention(torch.nn.Module):
         """
         batch_size, seq_length, d_model = x.size()
 
-        query = self.q_proj(x)
-        key = self.k_proj(x)
-        value = self.v_proj(x)
+        query, key, value = self.qkv_proj(x).chunk(3, dim=-1)
         mask = torch.tril(torch.ones((seq_length, seq_length), device=x.device), diagonal=0).bool()
 
         # Rearrange slices for multi-head attention

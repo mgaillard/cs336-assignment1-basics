@@ -176,9 +176,7 @@ def run_multihead_self_attention_with_rope(
     attention = CausalMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, use_pytorch_sdpa=False)
     attention.load_state_dict(
         {
-            "q_proj.weight": q_proj_weight,
-            "k_proj.weight": k_proj_weight,
-            "v_proj.weight": v_proj_weight,
+            "qkv_proj.weight": torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0),
             "o_proj.weight": o_proj_weight,
         }
     )
@@ -291,9 +289,9 @@ def run_transformer_block(
     transformer_block.load_state_dict(
         {
             "attn_norm.weight": weights["ln1.weight"],
-            "attn.q_proj.weight": weights["attn.q_proj.weight"],
-            "attn.k_proj.weight": weights["attn.k_proj.weight"],
-            "attn.v_proj.weight": weights["attn.v_proj.weight"],
+            "attn.qkv_proj.weight": torch.cat(
+                [weights["attn.q_proj.weight"], weights["attn.k_proj.weight"], weights["attn.v_proj.weight"]], dim=0
+            ),
             "attn.o_proj.weight": weights["attn.output_proj.weight"],
             "ffn_norm.weight": weights["ln2.weight"],
             "ffn.w1.weight": weights["ffn.w1.weight"],
@@ -410,9 +408,14 @@ def run_transformer_lm(
         state_dict.update(
             {
                 f"blocks.block_{i}.attn_norm.weight": weights[prefix + "ln1.weight"],
-                f"blocks.block_{i}.attn.q_proj.weight": weights[prefix + "attn.q_proj.weight"],
-                f"blocks.block_{i}.attn.k_proj.weight": weights[prefix + "attn.k_proj.weight"],
-                f"blocks.block_{i}.attn.v_proj.weight": weights[prefix + "attn.v_proj.weight"],
+                f"blocks.block_{i}.attn.qkv_proj.weight": torch.cat(
+                    [
+                        weights[prefix + "attn.q_proj.weight"],
+                        weights[prefix + "attn.k_proj.weight"],
+                        weights[prefix + "attn.v_proj.weight"],
+                    ],
+                    dim=0,
+                ),
                 f"blocks.block_{i}.attn.o_proj.weight": weights[prefix + "attn.output_proj.weight"],
                 f"blocks.block_{i}.ffn_norm.weight": weights[prefix + "ln2.weight"],
                 f"blocks.block_{i}.ffn.w1.weight": weights[prefix + "ffn.w1.weight"],
