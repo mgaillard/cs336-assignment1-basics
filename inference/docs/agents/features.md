@@ -3,8 +3,8 @@
 | # | Requirement | Implementation |
 |---|---|---|
 | 1 | C++17 console app in `inference/` running `cs336_basics.TransformerLM` | `src/main.cpp`, `-std=c++17` |
-| 2 | Runs on 32-bit and 64-bit CPUs | `x86_sse` (`-m32`) and `x64_avx2` (`-m64`) targets; `-D_FILE_OFFSET_BITS=64`; no pointer-size assumptions; weights read with `fread` into 64-byte aligned buffers |
-| 3 | Makefile builds every architecture | `Makefile`: `x86_sse` = 32-bit, single core, SSE only (no SSE2); `x64_avx2` = 64-bit, OpenMP, SSE4.2 + AVX2 (+FMA) |
+| 2 | Runs on 32-bit and 64-bit CPUs | `x86_sse` (`-m32`), `x86_sse_win` (32-bit Windows, MinGW-w64) and `x64_avx2` (`-m64`) targets; `-D_FILE_OFFSET_BITS=64`; no pointer-size assumptions; weights read with `fread` into 64-byte aligned buffers |
+| 3 | Makefile builds every architecture | `Makefile`: `x86_sse` = 32-bit, single core, SSE only (no SSE2); `x86_sse_win` = same flags as `x86_sse` cross-compiled to a static Windows `.exe`; `x64_avx2` = 64-bit, OpenMP, SSE4.2 + AVX2 (+FMA) |
 | 4 | Classes mimic the Python model | `TransformerLM`, `TransformerBlockPreNorm`, `CausalMultiHeadSelfAttention`, `PositionWiseFeedForward`, `RMSNorm`, `RotaryPositionalEmbedding`, `Embedding`, `Linear` (see `architecture.md`) |
 | 5 | Architecture dimensions are constants (`gpt_small.yaml`), recompile to change | `src/model_config.h` (`constexpr`, `static_assert`s); `model.bin` header is checked against them at load |
 | 6 | float32 inference accelerated with SIMD | float32 everywhere; SIMD from the compiler's auto-vectorizer on loops in `src/kernels.h` (ADR 0007) |

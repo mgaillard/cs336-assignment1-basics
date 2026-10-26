@@ -8,7 +8,7 @@ Float32 compute, compiler auto-vectorized loops, OpenMP on 64-bit builds.
 ```bash
 cd inference
 make convert          # checkpoint .pt -> models/model.bin, GPT-2 tokenizer -> models/tokenizer.bin
-make                  # builds build/x86_sse/cs336_infer and build/x64_avx2/cs336_infer
+make                  # builds build/x86_sse/cs336_infer, build/x86_sse_win/cs336_infer.exe and build/x64_avx2/cs336_infer
 ./build/x64_avx2/cs336_infer --prompt "Once upon a time" --max_steps 128
 make validate         # compare with PyTorch / tiktoken (needs both binaries)
 ```
@@ -22,6 +22,7 @@ accepts a `save_pretrained` directory / `model.safetensors`.
 | Target | Flags | Threads |
 |---|---|---|
 | `make x86_sse`  | `-m32 -march=pentium3 -msse -mno-sse2 -mfpmath=sse,387 -fopenmp-simd` | single core |
+| `make x86_sse_win` | `-march=pentium3 -msse -mno-sse2 -mfpmath=sse,387 -fopenmp-simd`, MinGW-w64 cross-compiler, `-static` | single core, Windows 32-bit `.exe` |
 | `make x64_avx2` | `-m64 -msse4.2 -mavx2 -mfma -fopenmp` | OpenMP (`--threads N`) |
 
 Common flags: `-std=c++17 -O3 -ffp-contract=fast -fno-math-errno` (no `-ffast-math`).
@@ -29,6 +30,15 @@ Common flags: `-std=c++17 -O3 -ffp-contract=fast -fno-math-errno` (no `-ffast-ma
 The 32-bit build needs `g++-multilib` (including `lib32stdc++-13-dev`). Without root, extract that
 package into a directory `D` and run
 `make M32_CXXFLAGS="-isystem D/usr/include/x86_64-linux-gnu/c++/13/32" M32_LDFLAGS="-L D/usr/lib/gcc/x86_64-linux-gnu/13/32 -static-libstdc++"`.
+
+`x86_sse_win` is the Windows twin of `x86_sse` (same flags), cross-compiled with MinGW-w64.
+On Ubuntu, install the toolchain with:
+
+```
+sudo apt install gcc-mingw-w64-i686-win32 gcc-multilib
+```
+
+The result, `build/x86_sse_win/cs336_infer.exe`, is statically linked: copy it with `models/` to Windows.
 
 ## Changing the architecture
 

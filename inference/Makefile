@@ -2,6 +2,7 @@
 #
 #   make              build every target
 #   make x86_sse      32-bit, single core, SSE only (no SSE2)      -> build/x86_sse/cs336_infer
+#   make x86_sse_win 32-bit Windows (MinGW-w64), single core, SSE only -> build/x86_sse_win/cs336_infer.exe
 #   make x64_avx2     64-bit, multi core (OpenMP), SSE4.2 + AVX2   -> build/x64_avx2/cs336_infer
 #   make vecreport    summarize the loops the compiler vectorized
 #   make convert      create models/model.bin and models/tokenizer.bin from the checkpoint
@@ -18,7 +19,7 @@ CONFIG   ?= ../configs/gpt_small.yaml
 SRC_DIR  := src
 BUILD    := build
 SOURCES  := $(wildcard $(SRC_DIR)/*.cpp)
-TARGETS  := x86_sse x64_avx2
+TARGETS  := x86_sse x86_sse_win x64_avx2
 
 COMMON_FLAGS := -std=c++17 -O3 -Wall -Wextra -ffp-contract=fast -fno-math-errno -D_FILE_OFFSET_BITS=64
 
@@ -31,6 +32,18 @@ M32_LDFLAGS ?=
 x86_sse_FLAGS  := -m32 -march=pentium3 -msse -mno-sse2 -mfpmath=sse,387 -fopenmp-simd $(M32_CXXFLAGS)
 x86_sse_LDFLAGS := -m32 $(M32_LDFLAGS)
 
+# Windows 32-bit, same ISA flags as x86_sse, cross-compiled with MinGW-w64 (posix or win32 threads
+# model is irrelevant: no threads are used). Fully static so the .exe needs no MinGW DLLs.
+# Without root, extract g++-mingw-w64-i686-win32 into a directory and point WIN32_CXX at its driver,
+# adding -B/-L flags through WIN32_CXXFLAGS / WIN32_LDFLAGS.
+WIN32_CXX ?= i686-w64-mingw32-g++
+WIN32_CXXFLAGS ?=
+WIN32_LDFLAGS ?=
+x86_sse_win_CXX := $(WIN32_CXX)
+x86_sse_win_EXT := .exe
+x86_sse_win_FLAGS := -march=pentium3 -msse -mno-sse2 -mfpmath=sse,387 -fopenmp-simd $(WIN32_CXXFLAGS)
+x86_sse_win_LDFLAGS := -static $(WIN32_LDFLAGS)
+
 # 64-bit, SSE4.2 + AVX2 + FMA, OpenMP threads.
 x64_avx2_FLAGS := -m64 -msse4.2 -mavx2 -mfma -fopenmp
 x64_avx2_LDFLAGS := -m64 -fopenmp
@@ -40,13 +53,16 @@ x64_avx2_LDFLAGS := -m64 -fopenmp
 all: $(TARGETS)
 
 define TARGET_RULES
-$(1): $(BUILD)/$(1)/cs336_infer
+$(1)_CXX ?= $$(CXX)
+$(1)_EXT ?=
 
-$(BUILD)/$(1)/cs336_infer: $(patsubst $(SRC_DIR)/%.cpp,$(BUILD)/$(1)/%.o,$(SOURCES))
-	$$(CXX) $$($(1)_LDFLAGS) -o $$@ $$^
+$(1): $(BUILD)/$(1)/cs336_infer$$($(1)_EXT)
+
+$(BUILD)/$(1)/cs336_infer$$($(1)_EXT): $(patsubst $(SRC_DIR)/%.cpp,$(BUILD)/$(1)/%.o,$(SOURCES))
+	$$($(1)_CXX) $$($(1)_LDFLAGS) -o $$@ $$^
 
 $(BUILD)/$(1)/%.o: $(SRC_DIR)/%.cpp | $(BUILD)/$(1)
-	$$(CXX) $$(COMMON_FLAGS) $$($(1)_FLAGS) -MMD -MP -fopt-info-vec-optimized=$$(BUILD)/$(1)/$$*.vec.log -c $$< -o $$@
+	$$($(1)_CXX) $$(COMMON_FLAGS) $$($(1)_FLAGS) -MMD -MP -fopt-info-vec-optimized=$$(BUILD)/$(1)/$$*.vec.log -c $$< -o $$@
 
 $(BUILD)/$(1):
 	mkdir -p $$@

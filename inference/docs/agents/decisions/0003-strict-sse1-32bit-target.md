@@ -13,3 +13,5 @@ so `#pragma omp parallel` is ignored and the binary is single-threaded.
 no SSE2 mnemonics. Decode speed is ~3x lower than the 64-bit build (4-wide vectors, one thread).
 Building needs `g++-multilib` + `lib32stdc++-*-dev`; the Makefile has `M32_CXXFLAGS`/`M32_LDFLAGS` for
 locally extracted packages. If SSE1-only is not required, switching to `-msse2` needs a flag change only.
+
+See ADR 0012 for the Windows 32-bit twin of this target (`x86_sse_win`).

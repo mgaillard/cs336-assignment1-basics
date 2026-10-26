@@ -13,6 +13,9 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "model_config.h"
 #include "tokenizer.h"
@@ -170,6 +173,9 @@ int run(const Options& options) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+  SetConsoleOutputCP(CP_UTF8);  // the app prints UTF-8 bytes
+#endif
   Options options;
   if (!parse_args(argc, argv, options)) {
     print_usage(argv[0]);

@@ -11,5 +11,5 @@ logits (`--dump-logits`) differ from PyTorch by less than 1e-3 with the same arg
 (`--show-ids`, 40 steps) yields exactly PyTorch's full-recompute greedy ids.
 
 **Consequences.** Last run: tokenizer 0 failures, logits max abs diff <= 8e-6, all greedy sequences identical, on
-both `x86_sse` and `x64_avx2`. The check needs the PyTorch environment and the original checkpoint, so it is a
+both `x86_sse` and `x64_avx2`. `x86_sse_win` is only built and checked for SSE2-free code (no Wine here). The check needs the PyTorch environment and the original checkpoint, so it is a
 developer tool, not part of the C++ build. Run it after any change to model math, kernels or file formats.
