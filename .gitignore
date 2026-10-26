@@ -168,3 +168,5 @@ data/
 # Hydra per-run output directories (contain .hydra/ resolved config + job logs)
 outputs/
 multirun/
+# C++ inference app: converted weights/tokenizer (build/ is already ignored above)
+inference/models/
