@@ -7,7 +7,7 @@ and recompiled.
 
 **Decision.** `src/model_config.h` defines `VOCAB_SIZE`, `NUM_LAYERS`, `D_MODEL`, `NUM_HEADS`,
 `D_FF_CONFIG`, `EPS`, `MAX_SEQ_LEN`, `THETA`, `TIE_EMBEDDINGS` and derives `D_FF`, `D_K`, with
-`static_assert`s. Buffers are sized from them at construction. `model.bin` carries its architecture
+`CS_STATIC_ASSERT`s (compile-time checks). Buffers are sized from them at initialization. `model.bin` carries its architecture
 and the loader rejects any mismatch with the compiled constants, naming the offending field.
 
 **Consequences.** Changing the architecture = edit the header, rebuild, re-export. A wrong

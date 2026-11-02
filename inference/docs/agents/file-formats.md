@@ -2,7 +2,7 @@
 
 All integers and floats are **little-endian**. Both files are versioned (`version` = 1); readers
 reject unknown versions. Writers: `convert_checkpoint.py`, `export_tokenizer.py`. Readers:
-`src/weights_file.cpp`, `src/tokenizer.cpp` (via `src/binary_io.h`).
+`src/weights_file.c`, `src/tokenizer.c` (via `src/binary_io.c`).
 
 ## `model.bin`
 
@@ -29,7 +29,7 @@ ffn_norm.weight [d], ffn.w1.weight [f, d], ffn.w2.weight [d, f], ffn.w3.weight [
 `f = d_ff // 64 * 64`; `final_norm.weight [d]`; `output_proj.weight [vocab, d]` only if
 `tie_embeddings` is 0 (tied weights are stored once, as `embedding.weight`).
 
-At load time the C++ app compares the header with the constants of `src/model_config.h` and every
+At load time the C app compares the header with the constants of `src/model_config.h` and every
 tensor shape with the expected one, and fails with an explicit message on any mismatch.
 Linear weights keep PyTorch's `[out, in]` layout.
 

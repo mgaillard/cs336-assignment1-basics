@@ -10,4 +10,4 @@ EOS token, Unicode range tables), each with its own magic and version.
 
 **Consequences.** Checkpoints can be re-exported without touching the tokenizer. The app needs
 two paths (`--model`, `--tokenizer`, defaulting to `models/`). The tokenizer is self-contained, so
-the C++ app needs neither tiktoken nor a Unicode library.
+the C app needs neither tiktoken nor a Unicode library.

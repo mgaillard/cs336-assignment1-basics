@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Convert a PyTorch checkpoint of cs336_basics.TransformerLM into `model.bin`, the portable
-float32 weight file read by the C++ inference app. See docs/agents/file-formats.md.
+float32 weight file read by the C inference app. See docs/agents/file-formats.md.
 
 Accepted inputs: a training checkpoint (`.pt`, dict with a "model" state_dict) or a
 `save_pretrained` directory / `model.safetensors` file.

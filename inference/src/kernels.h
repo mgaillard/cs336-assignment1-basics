@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CS336_KERNELS_H
+#define CS336_KERNELS_H
 
 // Numeric kernels written as plain loops so that the compiler auto-vectorizes them for whatever
 // -m flags the target uses (SSE1, SSE4.2, AVX2...). No intrinsics, no -ffast-math: float reductions
@@ -6,25 +7,22 @@
 // Rules for loops in this file: contiguous unit stride, restrict-qualified pointers, no branches
 // or calls in the body (except the libm calls that cannot be vectorized without -ffast-math).
 
-#include <cmath>
+#include <math.h>
 
-#define CS336_RESTRICT __restrict
+#include "common.h"
 
-namespace cs336 {
-namespace kernels {
-
-// Number of independent partial sums in dot(): hides the FMA latency (4 AVX registers or 4 SSE ones).
+// Number of independent partial sums in kernels_dot(): hides the FMA latency (4 AVX registers or 4 SSE ones).
 #if defined(__AVX__)
-constexpr int kLanes = 32;
+#define KERNELS_LANES 32
 #else
-constexpr int kLanes = 16;
+#define KERNELS_LANES 16
 #endif
 
-inline float dot(const float* CS336_RESTRICT a, const float* CS336_RESTRICT b, int n) {
-  float acc[kLanes] = {};
+static inline float kernels_dot(const float *CS_RESTRICT a, const float *CS_RESTRICT b, int n) {
+  float acc[KERNELS_LANES] = {0};
   int i = 0;
-  for (; i + kLanes <= n; i += kLanes) {
-    for (int j = 0; j < kLanes; ++j) acc[j] += a[i + j] * b[i + j];
+  for (; i + KERNELS_LANES <= n; i += KERNELS_LANES) {
+    for (int j = 0; j < KERNELS_LANES; ++j) acc[j] += a[i + j] * b[i + j];
   }
   float tail = 0.0f;
   const int start = i;
@@ -32,39 +30,39 @@ inline float dot(const float* CS336_RESTRICT a, const float* CS336_RESTRICT b, i
   for (int k = start; k < n; ++k) tail += a[k] * b[k];
   float total = 0.0f;
 #pragma omp simd reduction(+ : total)
-  for (int j = 0; j < kLanes; ++j) total += acc[j];
+  for (int j = 0; j < KERNELS_LANES; ++j) total += acc[j];
   return total + tail;
 }
 
 // y += alpha * x
-inline void axpy(float* CS336_RESTRICT y, float alpha, const float* CS336_RESTRICT x, int n) {
+static inline void kernels_axpy(float *CS_RESTRICT y, float alpha, const float *CS_RESTRICT x, int n) {
   for (int i = 0; i < n; ++i) y[i] += alpha * x[i];
 }
 
-inline void scale(float* CS336_RESTRICT x, float alpha, int n) {
+static inline void kernels_scale(float *CS_RESTRICT x, float alpha, int n) {
   for (int i = 0; i < n; ++i) x[i] *= alpha;
 }
 
 // y += x
-inline void add(float* CS336_RESTRICT y, const float* CS336_RESTRICT x, int n) {
+static inline void kernels_add(float *CS_RESTRICT y, const float *CS_RESTRICT x, int n) {
   for (int i = 0; i < n; ++i) y[i] += x[i];
 }
 
-inline float sum_squares(const float* CS336_RESTRICT x, int n) {
+static inline float kernels_sum_squares(const float *CS_RESTRICT x, int n) {
   float total = 0.0f;
 #pragma omp simd reduction(+ : total)
   for (int i = 0; i < n; ++i) total += x[i] * x[i];
   return total;
 }
 
-inline float sum(const float* CS336_RESTRICT x, int n) {
+static inline float kernels_sum(const float *CS_RESTRICT x, int n) {
   float total = 0.0f;
 #pragma omp simd reduction(+ : total)
   for (int i = 0; i < n; ++i) total += x[i];
   return total;
 }
 
-inline float max_value(const float* CS336_RESTRICT x, int n) {
+static inline float kernels_max_value(const float *CS_RESTRICT x, int n) {
   float m = x[0];
 #pragma omp simd reduction(max : m)
   for (int i = 1; i < n; ++i) m = x[i] > m ? x[i] : m;
@@ -72,20 +70,19 @@ inline float max_value(const float* CS336_RESTRICT x, int n) {
 }
 
 // out[i] = x[i] * w[i] * alpha
-inline void scale_mul(float* CS336_RESTRICT out, const float* CS336_RESTRICT x, const float* CS336_RESTRICT w,
-                      float alpha, int n) {
+static inline void kernels_scale_mul(float *CS_RESTRICT out, const float *CS_RESTRICT x, const float *CS_RESTRICT w,
+                                     float alpha, int n) {
   for (int i = 0; i < n; ++i) out[i] = x[i] * alpha * w[i];
 }
 
 // x[i] = exp(x[i] - shift); the exp call is kept in its own simple loop.
-inline void exp_shifted(float* CS336_RESTRICT x, float shift, int n) {
-  for (int i = 0; i < n; ++i) x[i] = std::exp(x[i] - shift);
+static inline void kernels_exp_shifted(float *CS_RESTRICT x, float shift, int n) {
+  for (int i = 0; i < n; ++i) x[i] = expf(x[i] - shift);
 }
 
 // gate[i] = gate[i] * sigmoid(gate[i]) * up[i]   (SwiGLU: silu(w1 x) * w3 x)
-inline void silu_mul(float* CS336_RESTRICT gate, const float* CS336_RESTRICT up, int n) {
-  for (int i = 0; i < n; ++i) gate[i] = gate[i] / (1.0f + std::exp(-gate[i])) * up[i];
+static inline void kernels_silu_mul(float *CS_RESTRICT gate, const float *CS_RESTRICT up, int n) {
+  for (int i = 0; i < n; ++i) gate[i] = gate[i] / (1.0f + expf(-gate[i])) * up[i];
 }
 
-}  // namespace kernels
-}  // namespace cs336
+#endif

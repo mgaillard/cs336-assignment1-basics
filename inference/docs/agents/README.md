@@ -3,7 +3,7 @@
 | File | Content |
 |---|---|
 | `features.md` | Target features / requirements of the app and where each one is implemented |
-| `architecture.md` | Python-class to C++-class map, data flow, buffers, file layout |
+| `architecture.md` | Python-class to C module map, data flow, buffers, file layout |
 | `file-formats.md` | Byte-level specification of `model.bin` and `tokenizer.bin` |
 | `decisions/NNNN-*.md` | Architecture decision records (context, decision, consequences) |
 

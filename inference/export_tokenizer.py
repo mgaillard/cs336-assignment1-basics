@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Export the tiktoken GPT-2 tokenizer into `tokenizer.bin`, read by the C++ inference app.
+"""Export the tiktoken GPT-2 tokenizer into `tokenizer.bin`, read by the C inference app.
 See docs/agents/file-formats.md.
 
 The file holds the byte string of every BPE token (ordered by rank == token id), the end-of-text
-token, and the Unicode range tables for \\p{L}, \\p{N} and \\s that the C++ pre-tokenizer needs.
+token, and the Unicode range tables for \\p{L}, \\p{N} and \\s that the C pre-tokenizer needs.
 
 Example:
     python inference/export_tokenizer.py inference/models/tokenizer.bin

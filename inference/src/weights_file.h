@@ -1,35 +1,33 @@
-#pragma once
+#ifndef CS336_WEIGHTS_FILE_H
+#define CS336_WEIGHTS_FILE_H
 
-#include <cstdint>
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
+#include <stdint.h>
 
 #include "binary_io.h"
 
-namespace cs336 {
+#define WEIGHTS_MAX_NDIM 4
 
-struct TensorInfo {
-  std::vector<std::uint32_t> shape;
-  std::uint64_t offset = 0;
-  std::uint64_t nbytes = 0;
-  std::size_t numel() const;
-};
+typedef struct {
+  char *name;
+  uint32_t ndim;
+  uint32_t shape[WEIGHTS_MAX_NDIM];
+  uint64_t offset;
+  uint64_t nbytes;
+} TensorInfo;
 
 // Reader of model.bin (written by convert_checkpoint.py). Opening the file parses the header and
 // the tensor table and checks the stored architecture against the compile-time constants of
 // model_config.h; tensors are then read on demand straight into the destination buffers.
-class WeightsFile {
- public:
-  explicit WeightsFile(const std::string& path);
+typedef struct {
+  BinaryReader reader;
+  TensorInfo *tensors;
+  uint32_t count;
+} WeightsFile;
 
-  // Reads tensor `name` (float32) into `dst` after checking that its shape is `expected_shape`.
-  void read_tensor(const std::string& name, const std::vector<std::uint32_t>& expected_shape, float* dst);
+int weights_file_open(WeightsFile *file, const char *path);
+void weights_file_close(WeightsFile *file);
 
- private:
-  BinaryReader reader_;
-  std::map<std::string, TensorInfo> tensors_;
-};
+// Reads tensor `name` (float32) into `dst` after checking that its shape is `expected_shape`.
+int weights_file_read_tensor(WeightsFile *file, const char *name, const uint32_t *expected_shape, int ndim, float *dst);
 
-}  // namespace cs336
+#endif

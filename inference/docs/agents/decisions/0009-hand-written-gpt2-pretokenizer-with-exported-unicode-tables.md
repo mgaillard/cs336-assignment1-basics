@@ -4,9 +4,9 @@ Status: Accepted
 
 **Context.** The tokenizer must handle UTF-8 input and produce tiktoken `gpt2` ids. The pre-tokenization
 regex uses Unicode classes (`\p{L}`, `\p{N}`, `\s`), possessive quantifiers and a lookahead, which
-`std::regex` does not support, and no external library is wanted.
+the C library's regex support does not offer, and no external library is wanted.
 
-**Decision.** `Tokenizer::pre_tokenize` implements the seven alternatives by hand on code points, in regex
+**Decision.** `pre_tokenize` (in `tokenizer.c`) implements the seven alternatives by hand on code points, in regex
 priority order (contractions; ` ?\p{L}+`; ` ?\p{N}+`; ` ?[^\s\p{L}\p{N}]+`; `\s+$`; `\s+(?!\S)` which leaves the last
 whitespace for the next token; `\s`). Class membership uses sorted range tables exported into `tokenizer.bin` by
 `export_tokenizer.py` (L and N from the `regex` module, White_Space from the Unicode list). Byte-pair merging follows

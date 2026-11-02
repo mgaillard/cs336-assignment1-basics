@@ -1,26 +1,21 @@
-#pragma once
+#ifndef CS336_RMSNORM_H
+#define CS336_RMSNORM_H
 
-#include <string>
-
-#include "aligned_buffer.h"
+#include "common.h"
 #include "weights_file.h"
 
-namespace cs336 {
+// nn.RMSNorm with a learned scale and no bias: out = x / sqrt(mean(x^2) + eps) * weight.
+typedef struct {
+  int dim;
+  float eps;
+  float *weight;  // [dim]
+} RMSNorm;
 
-// torch.nn.RMSNorm([dim], eps): out = x * rsqrt(mean(x^2) + eps) * weight
-class RMSNorm {
- public:
-  RMSNorm(int dim, float eps);
+int rmsnorm_init(RMSNorm *m, int dim, float eps);
+void rmsnorm_free(RMSNorm *m);
+int rmsnorm_load_weights(RMSNorm *m, WeightsFile *file, const char *name);
 
-  void load_weights(WeightsFile& file, const std::string& name);
+// x, out: [num_tokens, dim]
+void rmsnorm_forward(const RMSNorm *m, const float *x, int num_tokens, float *out);
 
-  // x, out: [num_tokens, dim]
-  void forward(const float* x, int num_tokens, float* out) const;
-
- private:
-  int dim_;
-  float eps_;
-  AlignedBuffer<float> weight_;
-};
-
-}  // namespace cs336
+#endif

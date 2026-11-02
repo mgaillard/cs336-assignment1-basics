@@ -1,57 +1,53 @@
-#pragma once
+#ifndef CS336_TRANSFORMER_LM_H
+#define CS336_TRANSFORMER_LM_H
 
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "aligned_buffer.h"
+#include "common.h"
 #include "embedding.h"
 #include "linear.h"
 #include "model_config.h"
 #include "rmsnorm.h"
 #include "sampler.h"
 #include "transformer_block.h"
+#include "weights_file.h"
 
-namespace cs336 {
+typedef struct {
+  int prompt_tokens;
+  int generated_tokens;
+  double prefill_seconds;
+  double decode_seconds;
+} GenerateStats;
 
-struct GenerateStats {
-  int prompt_tokens = 0;
-  int generated_tokens = 0;
-  double prefill_seconds = 0.0;
-  double decode_seconds = 0.0;
-};
+typedef struct {
+  Embedding embedding;
+  TransformerBlockPreNorm blocks[NUM_LAYERS];
+  RMSNorm final_norm;
+  Linear output_proj;
+  int position;
+  float *hidden;        // residual stream [MAX_SEQ_LEN, D_MODEL]
+  float *final_hidden;  // [D_MODEL]
+  float *logits;        // [VOCAB_SIZE]
+} TransformerLM;
 
-class TransformerLM {
- public:
-  // Builds the architecture from the constants of model_config.h; weights are filled by load_weights.
-  TransformerLM();
+// Builds the architecture from the constants of model_config.h; weights are filled by
+// transformer_lm_load_weights. transformer_lm_free is safe after a failed init.
+int transformer_lm_init(TransformerLM *m);
+void transformer_lm_free(TransformerLM *m);
+int transformer_lm_load_weights(TransformerLM *m, WeightsFile *file);
 
-  void load_weights(WeightsFile& file);
+// Clears the KV cache: the next forward() starts a new sequence.
+void transformer_lm_reset(TransformerLM *m);
 
-  // Clears the KV cache: the next forward() starts a new sequence.
-  void reset() { position_ = 0; }
-  int position() const { return position_; }
+// Feeds `num_tokens` tokens that continue the current sequence and stores the logits ([VOCAB_SIZE],
+// valid until the next call) predicting the token that follows the last one in `*logits`.
+int transformer_lm_forward(TransformerLM *m, const int *tokens, int num_tokens, const float **logits);
 
-  // Feeds `num_tokens` tokens that continue the current sequence and returns the logits
-  // ([VOCAB_SIZE], valid until the next call) predicting the token that follows the last one.
-  const float* forward(const int* tokens, int num_tokens);
+typedef void (*TokenCallback)(int token, void *user);
 
-  // Autoregressive generation, mirroring TransformerLM.generate in Python: stops after `max_steps`
-  // new tokens (reduced so that prompt + generated fits in MAX_SEQ_LEN) or once `eos_token_id` was
-  // produced (it is included in the result). `on_token` is called with every new token.
-  std::vector<int> generate(const std::vector<int>& prompt, int eos_token_id, Sampler& sampler, int max_steps,
-                            const std::function<void(int)>& on_token = nullptr, GenerateStats* stats = nullptr);
+// Autoregressive generation, mirroring TransformerLM.generate in Python: stops after `max_steps`
+// new tokens (reduced so that prompt + generated fits in MAX_SEQ_LEN) or once `eos_token_id` was
+// produced (it is included in the result). `on_token` (optional) is called with every new token.
+// The prompt followed by the generated tokens is appended to `sequence` (int array in a CsBuf).
+int transformer_lm_generate(TransformerLM *m, const int *prompt, int prompt_len, int eos_token_id, Sampler *sampler,
+                            int max_steps, TokenCallback on_token, void *user, GenerateStats *stats, CsBuf *sequence);
 
- private:
-  Embedding embedding_;
-  std::vector<std::unique_ptr<TransformerBlockPreNorm>> blocks_;
-  RMSNorm final_norm_;
-  Linear output_proj_;
-  int position_ = 0;
-  AlignedBuffer<float> hidden_;        // residual stream [MAX_SEQ_LEN, D_MODEL]
-  AlignedBuffer<float> final_hidden_;  // [D_MODEL]
-  AlignedBuffer<float> logits_;        // [VOCAB_SIZE]
-};
-
-}  // namespace cs336
+#endif

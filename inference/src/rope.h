@@ -1,22 +1,19 @@
-#pragma once
+#ifndef CS336_ROPE_H
+#define CS336_ROPE_H
 
-#include <vector>
+#include "common.h"
 
-namespace cs336 {
+// Rotary positional embedding over interleaved pairs (x[2k], x[2k+1]); cos/sin tables are computed in double.
+typedef struct {
+  int d_k;
+  float *cos;  // [max_seq_len, d_k / 2]
+  float *sin;
+} RotaryPositionalEmbedding;
 
-// Rotary positional embedding. Consecutive pairs (x[2k], x[2k+1]) of a head vector are rotated by
-// the angle position / theta^(2k / d_k), as in cs336_basics/rope.py.
-class RotaryPositionalEmbedding {
- public:
-  RotaryPositionalEmbedding(int d_k, int max_seq_len, double theta);
+int rope_init(RotaryPositionalEmbedding *m, int d_k, int max_seq_len, double theta);
+void rope_free(RotaryPositionalEmbedding *m);
 
-  // Rotates the d_k values of `x` in place for token position `position`.
-  void apply(float* x, int position) const;
+// Rotates one vector of d_k floats in place for the given position.
+void rope_apply(const RotaryPositionalEmbedding *m, float *x, int position);
 
- private:
-  int d_k_;
-  std::vector<float> cos_;  // [max_seq_len, d_k / 2]
-  std::vector<float> sin_;
-};
-
-}  // namespace cs336
+#endif

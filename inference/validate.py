@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the C++ inference binaries against the Python reference (tiktoken + PyTorch float32 on CPU).
+"""Check the C inference binaries against the Python reference (tiktoken + PyTorch float32 on CPU).
 
   1. tokenizer: token ids of many UTF-8 strings equal tiktoken's, invalid UTF-8 is rejected;
   2. logits:    the logits following a prompt match the PyTorch model (max abs difference);
