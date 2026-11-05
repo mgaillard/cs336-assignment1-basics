@@ -59,9 +59,11 @@ class MemoryMappedDataset:
             Both tensors are on self.device
         """
         chunk = self.ds[idx : idx + self.context_length + 1]
-        # Copy to avoid issues with memory-mapped array views
-        inputs = torch.from_numpy(chunk[:-1].copy()).long().to(self.device)
-        targets = torch.from_numpy(chunk[1:].copy()).long().to(self.device)
+        # Copy to avoid issues with memory-mapped array views (astype copies), and widen the on-disk
+        # dtype (e.g. uint16) to int64
+        chunk = chunk.astype(np.int64)
+        inputs = torch.from_numpy(chunk[:-1]).to(self.device)
+        targets = torch.from_numpy(chunk[1:]).to(self.device)
         return inputs, targets
 
     def get_batch(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:

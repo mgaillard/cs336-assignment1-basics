@@ -5,7 +5,7 @@ defaults:
   - _self_       # this file's values override the schema defaults
 
 model:
-  vocab_size: 50257
+  vocab_size: 32000
   num_layers: 4
   d_model: 512
   num_heads: 16

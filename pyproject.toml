@@ -22,6 +22,7 @@ dependencies = [
     "ruff>=0.15.8",
     "tensorboard>=2.15.0", # Tensorboard for visualization
     "safetensors>=0.8.0",
+    "sentencepiece>=0.2.2",
 ]
 
 [build-system]

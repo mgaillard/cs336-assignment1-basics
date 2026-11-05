@@ -96,6 +96,10 @@ uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-train.txt 
 uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-valid.txt --output_file data/TinyStoriesV2-GPT4-valid-tokens.npy
 ```
 
+The datasets are tokenized with the Llama 2 SentencePiece tokenizer
+(32,000 tokens). Each story (separated by `<|endoftext|>` in the text
+files) is encoded as `<s> story </s>` (BOS = 1, EOS = 2), and the tokens are saved as `uint16`.
+
 ### Create the logs folder
 
 ```bash
@@ -197,9 +201,12 @@ uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=bfloat1
     - Better efficiency of use of parameters:
         - Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
 - Training:
-    - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
+    - Instead of parameters (num_batch, batch_size), have batch_size the actual batch size and then max_batch_size_per_gpu that limits the size of a batch the GPU can take. The equation is then: batch_size = num_batch * max_batch_size_per_gpu. Do the same thing for validation, val_batch_size should be the total, and then we infer the number of batches based on the max_batch_size_per_gpu.
+    - warmup_steps should be a proportion of the total number of steps.
+    - The scheduler should include a maximum number of tokens total_train_tokens that can be seen during training (for scaling runs).
     - Better optimizer for LLM than AdamW
     - About the optimizer, a small model has more parameters in the vocab embedding than in transformer blocks, look at optimizers SOAP / Kron (Shampoo-family)
+    - How many tokens per parameter in the model should be used for training? Chinchilla-optimal says 20:1. Small LLMs go beyond up to 200:1.
 - Inference:
     - Implement KV cache for inference
     - Implement a Diffuser like interface to the models

@@ -1,0 +1,4 @@
+Llama 2 is licensed under the LLAMA 2 Community License, Copyright (c) Meta Platforms, Inc. All Rights Reserved.
+
+The file tokenizer.model in this folder is the Llama 2 SentencePiece tokenizer (sha256
+9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347), distributed under the agreement in LICENSE.

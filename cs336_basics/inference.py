@@ -1,7 +1,6 @@
 import logging
 
 import hydra
-import tiktoken
 import torch
 from omegaconf import DictConfig, OmegaConf
 
@@ -9,6 +8,7 @@ from cs336_basics import config_utils  # noqa: F401  registers the schema + reso
 from cs336_basics.checkpoint import find_latest_best_pretrained_checkpoint
 from cs336_basics.config_schema import Config
 from cs336_basics.config_utils import hydra_output_root, resolve_dtype
+from cs336_basics.llama2_tokenizer import load_tokenizer
 from cs336_basics.transformer_lm import TransformerLM
 
 
@@ -42,15 +42,18 @@ def main(dict_cfg: DictConfig) -> None:
         logging.info(f"Casting model weights to {dtype} for inference")
         model.cast_weights(dtype)
 
-    # Load tokenizer and get EOS token ID
-    tokenizer = tiktoken.get_encoding("gpt2")
-    eos_token_id = tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})[
-        0
-    ]  # 50256 is the GPT2 EOT token ID
+    # Load the Llama 2 tokenizer and get the EOS token ID (</s> = 2)
+    tokenizer = load_tokenizer()
+    if tokenizer.vocab_size() != model.config.vocab_size:
+        raise ValueError(
+            f"The model's vocab_size ({model.config.vocab_size}) does not match the Llama 2 tokenizer "
+            f"({tokenizer.vocab_size()}). Was the checkpoint trained with a different tokenizer?"
+        )
+    eos_token_id = tokenizer.eos_id()
     logging.info(f"EOS token ID: {eos_token_id}")
 
-    # Encode prompt
-    prompt_tokens = tokenizer.encode(config.inference.prompt)
+    # Encode prompt; stories start with BOS (<s> = 1) in the training data
+    prompt_tokens = tokenizer.encode(config.inference.prompt, add_bos=True)
     prompt = torch.tensor(prompt_tokens).unsqueeze(0).to(device)
     logging.info(f"Prompt: {config.inference.prompt}")
     logging.info(f"Prompt tokens: {prompt_tokens}")
