@@ -590,7 +590,18 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    from cs336_basics.learning_rate_scheduler import create_cosine_annealing_scheduler
+
+    # Create a dummy optimizer because the scheduler needs it.
+    optimizer = torch.optim.SGD([torch.nn.Parameter(torch.zeros(1))], lr=max_learning_rate)
+    scheduler = create_cosine_annealing_scheduler(
+        optimizer, warmup_steps=warmup_iters, T_max=cosine_cycle_iters, eta_min=min_learning_rate
+    )
+    # PyTorch's cosine annealing is periodic past T_max; the spec holds min lr instead.
+    for _ in range(min(it, cosine_cycle_iters)):
+        optimizer.step()
+        scheduler.step()
+    return scheduler.get_last_lr()[0]
 
 
 def run_save_checkpoint(

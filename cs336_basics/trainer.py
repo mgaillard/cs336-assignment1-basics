@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 import torch
-from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, LRScheduler, SequentialLR
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -13,6 +13,7 @@ from cs336_basics.checkpoint import load_checkpoint, pretrained_checkpoint_dirna
 from cs336_basics.config_schema import Config
 from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.dataset import MemoryMappedDataset
+from cs336_basics.learning_rate_scheduler import create_cosine_annealing_scheduler
 from cs336_basics.transformer_lm import TransformerLM
 
 
@@ -120,19 +121,12 @@ class Trainer:
         Should be called in __init__ after optimizer is initialized and before training loop starts.
         """
         scheduler_config = self.config.scheduler
-
-        warmup_scheduler = ConstantLR(self.optimizer, factor=1.0, total_iters=scheduler_config.warmup_steps)
-
-        num_cosine_steps = max(
-            scheduler_config.T_max - scheduler_config.warmup_steps, 1
-        )  # Avoid T_max <= warmup_steps which causes error
-        cosine_scheduler = CosineAnnealingLR(self.optimizer, T_max=num_cosine_steps, eta_min=scheduler_config.eta_min)
-
-        scheduler = SequentialLR(
-            self.optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[scheduler_config.warmup_steps]
+        return create_cosine_annealing_scheduler(
+            self.optimizer,
+            warmup_steps=scheduler_config.warmup_steps,
+            T_max=scheduler_config.T_max,
+            eta_min=scheduler_config.eta_min,
         )
-
-        return scheduler
 
     def _init_datasets(self) -> None:
         """

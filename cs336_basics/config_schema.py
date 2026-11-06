@@ -54,7 +54,9 @@ class OptimConfig:
 
 @dataclass(frozen=False)
 class SchedulerConfig:
-    # number of warmup steps with constant learning rate
+    # Number of warmup steps with linear learning rate.
+    # Warmup is usually a small fraction of the total training steps like 0.1% to 2.0% of total steps.
+    # It could also be a fixed number of steps like 1000 or 2000 steps.
     warmup_steps: int = 1000
     # number of iterations for cosine annealing (typically equal to max_steps - warmup_steps)
     T_max: int = 1000
