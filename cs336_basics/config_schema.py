@@ -73,6 +73,7 @@ class TrainerConfig:
     # whether to compile the training step with torch.compile. Works best on Linux.
     compile: bool = False
     # mixed precision training dtype ("float32" or "bfloat16"); resolved via resolve_dtype()
+    # float32 is required on CPU; bfloat16 is recommended on CUDA
     dtype: str = "float32"
     # maximum number of training steps
     max_steps: int = 1000
