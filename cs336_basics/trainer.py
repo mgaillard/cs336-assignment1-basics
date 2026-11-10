@@ -310,6 +310,13 @@ class Trainer:
         Main training loop for the model.
         Loads training and validation data, runs training iterations, logs metrics, and saves checkpoints.
         """
+        tokens_per_step = self.config.data.batch_size * self.config.model.max_seq_len
+        total_tokens = tokens_per_step * self.config.trainer.max_steps
+        logging.info(
+            f"Training for {self.config.trainer.max_steps:,} steps x {tokens_per_step:,} tokens/step "
+            f"= {total_tokens:,} total tokens "
+            f"({total_tokens / self.train_dataset.total_length:.2f} epochs of the training set)"
+        )
         logging.info("Starting training loop")
 
         # Progress bar for training steps between log intervals

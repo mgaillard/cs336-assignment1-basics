@@ -1,7 +1,5 @@
 # Basic training script for TransformerLM
 
-import logging
-
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
@@ -17,7 +15,6 @@ def main(dict_cfg: DictConfig) -> None:
     # Convert the composed DictConfig into a real, type-checked Config dataclass so the rest of the
     # code (Trainer, etc.) works with plain dataclasses.
     config: Config = OmegaConf.to_object(dict_cfg)
-    logging.info("Loading from config:\n" + str(config))
 
     trainer = Trainer(config)
     trainer.train()
