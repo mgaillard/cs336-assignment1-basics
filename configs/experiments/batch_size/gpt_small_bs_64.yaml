@@ -10,8 +10,8 @@ scheduler:
 trainer:
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 40,000,000
   max_steps: 2500
-  save_interval: 1000
-  log_interval: 10
+  save_interval: 2500
+  log_interval: 25
   val_interval: 25
 
 data:

@@ -39,7 +39,7 @@ trainer:
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 40,000,000
   max_steps: 10000
   save_interval: 1000
-  log_interval: 50
+  log_interval: 100
   val_interval: 200
 
 data:
