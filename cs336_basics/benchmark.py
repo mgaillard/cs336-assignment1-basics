@@ -230,7 +230,7 @@ def main(dict_cfg: DictConfig) -> None:
     forward_stats = benchmark_forward_pass(
         model,
         config.model.vocab_size,
-        batch_size=config.data.batch_size,
+        batch_size=config.data.max_batch_size_per_gpu,
         seq_len=config.data.context_length,
         num_warmup=config.benchmark.num_warmup,
         num_measure=config.benchmark.num_measure,
@@ -251,7 +251,7 @@ def main(dict_cfg: DictConfig) -> None:
         model,
         config.model.vocab_size,
         loss_fn,
-        batch_size=config.data.batch_size,
+        batch_size=config.data.max_batch_size_per_gpu,
         seq_len=config.data.context_length,
         num_warmup=config.benchmark.num_warmup,
         num_measure=config.benchmark.num_measure,
@@ -269,7 +269,7 @@ def main(dict_cfg: DictConfig) -> None:
     # Log summary
     logging.info(
         f"\n=== Benchmark Summary ({config.benchmark.dtype}) ===\n"
-        f"Batch size: {config.data.batch_size}\n"
+        f"Batch size: {config.data.max_batch_size_per_gpu}\n"
         f"Sequence length: {config.data.context_length}\n"
         f"Forward pass (avg): {forward_stats['mean_ms']:.3f} ms\n"
         f"Backward pass (avg): {backward_stats['mean_ms']:.3f} ms\n"

@@ -9,10 +9,13 @@ class DataConfig:
     # MissingMandatoryValue error instead of silently using an unusable empty path.
     train_path: str = MISSING
     validation_path: str = MISSING
-    num_batch: int = 1
+    # Total training batch size (sequences per optimizer step). Must be divisible by max_batch_size_per_gpu;
+    # the step is split into batch_size / max_batch_size_per_gpu accumulated micro-batches.
     batch_size: int = 1
-    val_num_batch: int = 1
+    # Total validation batch size. Must be divisible by max_batch_size_per_gpu.
     val_batch_size: int = 1
+    # Largest micro-batch the GPU processes at once, for both training and validation.
+    max_batch_size_per_gpu: int = 1
     context_length: int = 256
     seed: int = 42
 

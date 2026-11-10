@@ -1,4 +1,4 @@
-# Batch-size sweep. Each batch size is a bundle of coupled settings (num_batch/batch_size,
+# Batch-size sweep. Each batch size is a bundle of coupled settings (batch_size/max_batch_size_per_gpu,
 # max_steps, T_max, warmup_steps, log/val intervals) that keeps the total tokens processed roughly
 # constant, so each is its own config file (composed from gpt_small via Hydra `defaults`) rather
 # than a single --multirun axis.

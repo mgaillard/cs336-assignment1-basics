@@ -15,5 +15,5 @@ trainer:
   val_interval: 200
 
 data:
-  num_batch: 1
   batch_size: 8
+  max_batch_size_per_gpu: 8

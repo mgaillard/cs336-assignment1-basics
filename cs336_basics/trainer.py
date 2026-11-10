@@ -28,6 +28,7 @@ class Trainer:
     ) -> None:
         self.config = config
         logging.info("Loading from config:\n" + str(config))
+        self._validate_batch_config()
 
         self.device = self._init_device()
         self.dtype = resolve_dtype(self.config.trainer.dtype)
@@ -45,6 +46,23 @@ class Trainer:
             resume_log_dir = self.load_state(config.trainer.load_from)
         # Initialized after loading so a resumed run keeps writing to the same TensorBoard run.
         self._init_tensorboard(resume_log_dir)
+
+    def _validate_batch_config(self) -> None:
+        """
+        Check that the total training and validation batch sizes are positive and divisible by
+        max_batch_size_per_gpu, so they split exactly into equally sized micro-batches.
+        Raises ValueError otherwise.
+        """
+        data = self.config.data
+        if data.max_batch_size_per_gpu <= 0:
+            raise ValueError(f"max_batch_size_per_gpu must be positive, got {data.max_batch_size_per_gpu}")
+        for name, value in (("batch_size", data.batch_size), ("val_batch_size", data.val_batch_size)):
+            if value <= 0:
+                raise ValueError(f"{name} must be positive, got {value}")
+            if value % data.max_batch_size_per_gpu != 0:
+                raise ValueError(
+                    f"{name} ({value}) must be divisible by max_batch_size_per_gpu ({data.max_batch_size_per_gpu})"
+                )
 
     def _init_tensorboard(self, resume_log_dir: str | None = None) -> None:
         """
@@ -231,43 +249,47 @@ class Trainer:
     def validate_step(self) -> dict:
         """
         Run validation across multiple batches to avoid OOM errors.
-        Splits validation into chunks of val_batch_size and averages the loss.
+        Splits the val_batch_size validation samples into chunks of max_batch_size_per_gpu and averages the loss.
 
         Returns:
             Dictionary with average validation loss across all batches
         """
         self.model.eval()
         total_loss = 0.0
+        micro_batch_size = self.config.data.max_batch_size_per_gpu
+        num_batches = self.config.data.val_batch_size // micro_batch_size
 
         with torch.no_grad():
-            for _ in range(self.config.data.val_num_batch):
-                x_val, y_val = self.val_dataset.get_batch(self.config.data.val_batch_size)
+            for _ in range(num_batches):
+                x_val, y_val = self.val_dataset.get_batch(micro_batch_size)
                 with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
                     logits_val = self.model(x_val)
                     batch_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
                 total_loss += batch_loss
 
-        avg_val_loss = total_loss / self.config.data.val_num_batch
+        avg_val_loss = total_loss / num_batches
         perplexity_validation = math.exp(avg_val_loss)
         return {"loss_validation": avg_val_loss, "perplexity_validation": perplexity_validation}
 
     def train_step(self) -> dict:
         """
-        Run a training step with gradient accumulation over num_batch batches.
-        Accumulates gradients over multiple batches before updating weights.
-        Returns average loss across all accumulated batches.
+        Run a training step over batch_size samples, split into micro-batches of max_batch_size_per_gpu
+        with gradient accumulation before updating weights.
+        Returns average loss across all accumulated micro-batches.
         """
         self.model.train()
 
         self.optimizer.zero_grad()
         avg_loss = 0.0
+        micro_batch_size = self.config.data.max_batch_size_per_gpu
+        num_batches = self.config.data.batch_size // micro_batch_size
 
-        for _ in range(self.config.data.num_batch):
-            x, y = self.train_dataset.get_batch(self.config.data.batch_size)
+        for _ in range(num_batches):
+            x, y = self.train_dataset.get_batch(micro_batch_size)
             with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
                 logits = self.model(x)
                 loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))
-                loss /= self.config.data.num_batch
+                loss /= num_batches
             loss.backward()  # Gradients accumulate
             avg_loss += loss.item()
             self.tokens_processed += x.numel()
