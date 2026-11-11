@@ -13,6 +13,8 @@ from cs336_basics.checkpoint import load_checkpoint, pretrained_checkpoint_dirna
 from cs336_basics.config_schema import Config
 from cs336_basics.config_utils import resolve_dtype
 from cs336_basics.dataset import MemoryMappedDataset
+from cs336_basics.gradient_accumulation import accumulate_micro_batch_grad
+from cs336_basics.gradient_noise_scale import GradientNoiseScaleTracker
 from cs336_basics.learning_rate_scheduler import create_cosine_annealing_scheduler
 from cs336_basics.transformer_lm import TransformerLM
 
@@ -38,6 +40,7 @@ class Trainer:
         self.optimizer = self._init_optimizer()
         self.scheduler = self._init_scheduler()
         self._init_datasets()
+        self.noise_tracker = self._init_noise_tracker()
         self.iteration = 0
         self.tokens_processed = 0
         self.best_val_loss = float("inf")
@@ -162,6 +165,23 @@ class Trainer:
             device=str(self.device),
         )
 
+    def _init_noise_tracker(self) -> GradientNoiseScaleTracker | None:
+        """
+        Create the gradient noise scale tracker, or None if the training step has a single micro-batch
+        (the estimator needs gradient norms at two different batch sizes).
+        Should be called in __init__ before load_state() so that its EMA state can be restored.
+        """
+        data = self.config.data
+        if data.batch_size <= data.max_batch_size_per_gpu:
+            logging.info("Gradient noise scale disabled: batch_size must exceed max_batch_size_per_gpu.")
+            return None
+        return GradientNoiseScaleTracker(
+            small_batch_size=data.max_batch_size_per_gpu,
+            big_batch_size=data.batch_size,
+            beta=self.config.trainer.noise_scale_ema_beta,
+            tokens_per_sequence=self.config.model.max_seq_len,
+        )
+
     def log(self, **data) -> None:
         """
         Log metrics to console and TensorBoard.
@@ -216,6 +236,8 @@ class Trainer:
 
         self.tokens_processed = extra_state.get("tokens_processed", 0)
         self.best_val_loss = extra_state.get("best_val_loss", float("inf"))
+        if self.noise_tracker is not None and extra_state.get("noise_tracker") is not None:
+            self.noise_tracker.load_state_dict(extra_state["noise_tracker"])
         logging.info(
             f"Resuming training from step {self.iteration} (lr={self.scheduler.get_last_lr()[0]:.3e}, "
             f"best_val_loss={self.best_val_loss:.4f}, tokens_processed={self.tokens_processed})"
@@ -242,6 +264,7 @@ class Trainer:
             "tokens_processed": self.tokens_processed,
             "best_val_loss": self.best_val_loss,
             "tensorboard_log_dir": getattr(self, "tensorboard_log_dir", None),
+            "noise_tracker": self.noise_tracker.state_dict() if self.noise_tracker is not None else None,
         }
         logging.info(f"Saving checkpoint to {checkpoint_path} at iteration={iteration}...")
         save_checkpoint(self.model, self.optimizer, iteration, checkpoint_path, self.scheduler, extra_state)
@@ -275,12 +298,15 @@ class Trainer:
         """
         Run a training step over batch_size samples, split into micro-batches of max_batch_size_per_gpu
         with gradient accumulation before updating weights.
-        Returns average loss across all accumulated micro-batches.
+        Returns average loss across all accumulated micro-batches, the (pre-clipping) gradient norm and
+        the mean squared gradient norm of the micro-batches (an input of the gradient noise scale).
         """
         self.model.train()
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad()  # Sets grads to None, which accumulate_micro_batch_grad relies on
+        params = [p for p in self.model.parameters() if p.requires_grad]
         avg_loss = 0.0
+        micro_grad_sq_norm_sum = torch.zeros((), device=self.device)
         micro_batch_size = self.config.data.max_batch_size_per_gpu
         num_batches = self.config.data.batch_size // micro_batch_size
 
@@ -289,9 +315,8 @@ class Trainer:
             with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
                 logits = self.model(x)
                 loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))
-                loss /= num_batches
-            loss.backward()  # Gradients accumulate
-            avg_loss += loss.item()
+            micro_grad_sq_norm_sum += accumulate_micro_batch_grad(loss, params, num_batches)
+            avg_loss += loss.item() / num_batches
             self.tokens_processed += x.numel()
 
         grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.optim.max_grad_norm)
@@ -303,7 +328,21 @@ class Trainer:
         self.optimizer.step()
         self.scheduler.step()
 
-        return {"loss_training": avg_loss, "grad_norm": grad_norm}
+        metrics = {
+            "loss_training": avg_loss,
+            "grad_norm": grad_norm,
+            "grad_micro_sq_norm": (micro_grad_sq_norm_sum / num_batches).item(),
+        }
+
+        # If gradient noise scale tracking is enabled
+        if self.noise_tracker is not None:
+            metrics.update(
+                self.noise_tracker.update(
+                    g_small_sq=metrics["grad_micro_sq_norm"],
+                    g_big_sq=grad_norm.item() ** 2,
+                )
+            )
+        return metrics
 
     def train(self):
         """

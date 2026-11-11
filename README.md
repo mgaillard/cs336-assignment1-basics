@@ -199,6 +199,7 @@ uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=bfloat1
     - Better efficiency of use of parameters:
         - Considering a certain size in RAM, how should parameters be split between encoding/decoding and transformer blocks?
 - Training:
+    - Allow fixing the training data order
     - warmup_steps should be a proportion of the total number of steps.
     - The scheduler should include a maximum number of tokens total_train_tokens that can be seen during training (for scaling runs).
     - Better optimizer for LLM than AdamW

@@ -11,6 +11,7 @@ class DataConfig:
     validation_path: str = MISSING
     # Total training batch size (sequences per optimizer step). Must be divisible by max_batch_size_per_gpu;
     # the step is split into batch_size / max_batch_size_per_gpu accumulated micro-batches.
+    # To compute accurate gradient noise scale estimates, batch_size should be at least 8x larger than max_batch_size_per_gpu.
     batch_size: int = 1
     # Total validation batch size. Must be divisible by max_batch_size_per_gpu.
     val_batch_size: int = 1
@@ -91,6 +92,9 @@ class TrainerConfig:
     save_interval: int = 100
     # log train metrics every n steps
     log_interval: int = 10
+    # EMA decay used to smooth the gradient noise scale (critical batch size) estimate; 0 disables smoothing.
+    # Only active when batch_size > max_batch_size_per_gpu (needs at least 2 micro-batches).
+    noise_scale_ema_beta: float = 0.95
     # validate every n steps
     val_interval: int = 100
 
