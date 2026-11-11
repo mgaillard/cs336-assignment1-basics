@@ -189,7 +189,7 @@ uv run cs336_basics/benchmark.py --config-name gpt_small benchmark.dtype=bfloat1
 ## TODOs:
 
 - Data:
-    - Train on FineWeb data (probably just a sample)
+    - Train on FineWeb-EDU data (there is a sample-10BT dataset)
     - Backup training and validation sets
 - Model:
     - Profile the model execution
