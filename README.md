@@ -68,13 +68,6 @@ cd data
 
 wget https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt
 wget https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-valid.txt
-
-# We do not use these yet
-#
-# wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_train.txt.gz
-# gunzip owt_train.txt.gz
-# wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_valid.txt.gz
-# gunzip owt_valid.txt.gz
 ```
 
 #### Windows
@@ -99,6 +92,21 @@ uv run cs336_basics/tokenizer.py --input_file data/TinyStoriesV2-GPT4-valid.txt 
 The datasets are tokenized with the Llama 2 SentencePiece tokenizer
 (32,000 tokens). Each story (separated by `<|endoftext|>` in the text
 files) is encoded as `<s> story </s>` (BOS = 1, EOS = 2), and the tokens are saved as `uint16`.
+
+### Download and tokenize FineWeb-Edu (optional)
+
+[FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) is streamed from Hugging Face, tokenized, and saved to
+`.npy` files in the `data` folder.
+
+Set the `HF_TOKEN` environment variable (or run `hf auth login`) to avoid the unauthenticated rate limits.
+
+```bash
+# ~10B training tokens -> data/fineweb-edu-train-tokens.npy
+# ~10M validation tokens -> data/fineweb-edu-valid-tokens.npy
+uv run --group data cs336_basics/download_fineweb_edu.py --train_tokens 20_000_000_000 --valid_tokens 20_000_000
+```
+
+Note that the number of `train_tokens` is significantly larger than the dataset to make sure that we download all of it.
 
 ### Create the logs folder
 
