@@ -25,6 +25,12 @@ dependencies = [
     "sentencepiece>=0.2.2",
 ]
 
+[dependency-groups]
+# Only needed to download datasets (not for training): `uv run --group data <script>`
+data = [
+    "datasets>=4.0",    # Hugging Face datasets (streaming FineWeb-Edu)
+]
+
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
 build-backend = "uv_build"
