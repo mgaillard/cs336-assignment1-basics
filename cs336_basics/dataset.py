@@ -10,15 +10,16 @@ logger = logging.getLogger(__name__)
 class MemoryMappedDataset:
     """
     Dataset wrapper for memory-mapped numpy arrays containing token IDs.
-    Handles loading data from disk and providing random batches of (input, target) pairs.
+    Handles loading data from disk and providing batches of (input, target) pairs at given start indices.
+    The samples of each step are given by sample_indices(), a pure function of (seed, step).
     """
 
     def __init__(
         self,
         path: str | Path,
         context_length: int,
+        seed: int,
         device: str = "cpu",
-        seed: int | None = None,
     ):
         """
         Initialize the dataset.
@@ -26,22 +27,18 @@ class MemoryMappedDataset:
         Args:
             path: Path to the numpy file containing token IDs
             context_length: Length of context window (sequence length) for each sample
+            seed: Seed of the deterministic data order given by sample_indices()
             device: Device to load tensors to (default: "cpu")
-            seed: Random seed for reproducibility (optional)
         """
         self.path = path
         self.context_length = context_length
+        self.seed = seed
         self.device = device
 
         logger.info(f"Loading data from {path} ...")
         self.ds = np.load(path, mmap_mode="r")
         self.total_length = len(self.ds)
         logger.info(f"Dataset loaded with {self.total_length:,} tokens")
-
-        if seed is not None:
-            self.generator = torch.Generator().manual_seed(seed)
-        else:
-            self.generator = None
 
     def __len__(self) -> int:
         """Return the number of valid samples in the dataset."""
@@ -66,12 +63,20 @@ class MemoryMappedDataset:
         targets = torch.from_numpy(chunk[1:]).to(self.device)
         return inputs, targets
 
-    def get_batch(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def sample_indices(self, step: int, num_samples: int) -> torch.Tensor:
         """
-        Get a random batch of samples with random sampling.
+        Deterministic sample start indices for a step: a pure function of (seed, step), so the data order is
+        reproducible, independent of micro-batch size, and exactly resumable from a checkpoint.
+        """
+        rng = np.random.default_rng([self.seed, step])
+        return torch.from_numpy(rng.integers(0, len(self), size=num_samples, dtype=np.int64))
+
+    def get_batch(self, indices: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Get a batch of samples starting at the given indices.
 
         Args:
-            batch_size: Number of samples in the batch
+            indices: Start indices of shape (batch_size,), e.g. from sample_indices()
 
         Returns:
             Tuple of (batch_inputs, batch_targets)
@@ -79,14 +84,7 @@ class MemoryMappedDataset:
             - batch_targets: shape (batch_size, context_length)
             Both tensors are on self.device
         """
-        # Sample random indices
-        indices = torch.randint(
-            low=0,
-            high=len(self),
-            size=(batch_size,),
-            generator=self.generator,
-        )
-
+        batch_size = len(indices)
         batch_inputs = torch.empty(
             (batch_size, self.context_length),
             dtype=torch.long,

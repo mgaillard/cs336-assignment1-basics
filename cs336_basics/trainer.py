@@ -2,8 +2,10 @@ import datetime
 import logging
 import math
 import os
+import random
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.tensorboard import SummaryWriter
@@ -32,6 +34,7 @@ class Trainer:
         logging.info("Loading from config:\n" + str(config))
         self._validate_batch_config()
 
+        self._seed_everything()
         self.device = self._init_device()
         self.dtype = resolve_dtype(self.config.trainer.dtype)
         self.use_amp = self.dtype != torch.float32
@@ -49,6 +52,17 @@ class Trainer:
             resume_log_dir = self.load_state(config.trainer.load_from)
         # Initialized after loading so a resumed run keeps writing to the same TensorBoard run.
         self._init_tensorboard(resume_log_dir)
+
+    def _seed_everything(self) -> None:
+        """Seed the global RNGs (used for model initialization) and optionally enable deterministic kernels."""
+        seed = self.config.trainer.seed
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if self.config.trainer.deterministic:
+            # Required by cuBLAS for deterministic matmuls; must be set before the first CUDA call.
+            os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+            torch.use_deterministic_algorithms(True, warn_only=True)
 
     def _validate_batch_config(self) -> None:
         """
@@ -157,11 +171,13 @@ class Trainer:
         self.train_dataset = MemoryMappedDataset(
             self.config.data.train_path,
             self.config.model.max_seq_len,
+            seed=self.config.data.train_seed,
             device=str(self.device),
         )
         self.val_dataset = MemoryMappedDataset(
             self.config.data.validation_path,
             self.config.model.max_seq_len,
+            seed=self.config.data.val_seed,
             device=str(self.device),
         )
 
@@ -282,9 +298,12 @@ class Trainer:
         micro_batch_size = self.config.data.max_batch_size_per_gpu
         num_batches = self.config.data.val_batch_size // micro_batch_size
 
+        # The same fixed validation samples are used at every validation, so losses are comparable across steps and runs.
+        val_indices = self.val_dataset.sample_indices(0, self.config.data.val_batch_size)
+
         with torch.no_grad():
-            for _ in range(num_batches):
-                x_val, y_val = self.val_dataset.get_batch(micro_batch_size)
+            for micro_indices in val_indices.split(micro_batch_size):
+                x_val, y_val = self.val_dataset.get_batch(micro_indices)
                 with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
                     logits_val = self.model(x_val)
                     batch_loss = self.loss_fn(logits_val.view(-1, logits_val.size(-1)), y_val.view(-1)).item()
@@ -310,8 +329,11 @@ class Trainer:
         micro_batch_size = self.config.data.max_batch_size_per_gpu
         num_batches = self.config.data.batch_size // micro_batch_size
 
-        for _ in range(num_batches):
-            x, y = self.train_dataset.get_batch(micro_batch_size)
+        # Data order is a pure function of (data.train_seed, step), independent of micro-batch size and resumes.
+        step_indices = self.train_dataset.sample_indices(self.iteration, self.config.data.batch_size)
+
+        for micro_indices in step_indices.split(micro_batch_size):
+            x, y = self.train_dataset.get_batch(micro_indices)
             with torch.autocast(device_type=self.device.type, dtype=self.dtype, enabled=self.use_amp):
                 logits = self.model(x)
                 loss = self.loss_fn(logits.view(-1, logits.size(-1)), y.view(-1))

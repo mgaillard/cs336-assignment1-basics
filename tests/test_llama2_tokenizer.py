@@ -42,7 +42,7 @@ def test_dataset_reads_uint16(tmp_path):
     path = tmp_path / "tokens.npy"
     np.save(path, np.array([1, 500, 31999, 2, 1, 7], dtype=np.uint16))
 
-    dataset = MemoryMappedDataset(path, context_length=3)
+    dataset = MemoryMappedDataset(path, context_length=3, seed=0)
     inputs, targets = dataset[1]
     assert inputs.dtype == torch.long
     assert inputs.tolist() == [500, 31999, 2] and targets.tolist() == [31999, 2, 1]

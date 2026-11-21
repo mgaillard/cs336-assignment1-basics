@@ -18,7 +18,13 @@ class DataConfig:
     # Largest micro-batch the GPU processes at once, for both training and validation.
     max_batch_size_per_gpu: int = 1
     context_length: int = 256
-    seed: int = 42
+    # Seed of the training data order. Training sample indices are a pure function of (train_seed, step), so the
+    # order is the same across runs, model sizes, micro-batch sizes and checkpoint resumes.
+    train_seed: int = 42
+    # Seed of the validation samples. Validation always uses the same fixed samples, drawn from val_seed.
+    # If validation_path is the same as train_path, val_seed must differ from train_seed, otherwise the
+    # validation samples overlap the samples of the first training step and we validate on training data.
+    val_seed: int = 42
 
 
 @dataclass(frozen=False)
@@ -70,6 +76,10 @@ class SchedulerConfig:
 
 @dataclass(frozen=False)
 class TrainerConfig:
+    # Seed for model initialization (and the global torch/numpy/random RNGs). Independent of the data seeds.
+    seed: int = 42
+    # Use deterministic kernels (slower) for bit-reproducible runs on the same hardware.
+    deterministic: bool = False
     # checkpoint to load from (if any)
     load_from: str | None = None
     # device to train on "cpu" or "cuda"
