@@ -8,14 +8,14 @@ on Windows 98 SE (Pentium III or later).
 
 ```bash
 cd inference
-make convert          # checkpoint .pt -> models/model.bin, GPT-2 tokenizer -> models/tokenizer.bin
+make convert          # checkpoint .pt -> models/model.bin, Llama 2 tokenizer -> models/tokenizer.bin
 make                  # builds build/x86_sse/cs336_infer, build/x86_sse_win/cs336_infer.exe and build/x64_avx2/cs336_infer
 ./build/x64_avx2/cs336_infer --prompt "Once upon a time" --max_steps 128
-make validate         # compare with PyTorch / tiktoken (needs both Linux binaries)
+make validate         # compare with PyTorch / SentencePiece (needs both Linux binaries)
 make check_win98      # audit the DLL imports of the Windows exe against the Windows 98 SE allow-list
 ```
 
-`make convert` uses `PYTHON=../.venv/bin/python`, `CHECKPOINT=../outputs/2026-10-25/17-13-45/checkpoint_best_model.pt`
+`make convert` uses `PYTHON=../.venv/bin/python`, `CHECKPOINT=../outputs/2026-11-24/10-28-20/checkpoint_best_model.pt`
 and `CONFIG=../configs/gpt_small.yaml`; override them on the command line. The converter also
 accepts a `save_pretrained` directory / `model.safetensors`.
 
@@ -62,7 +62,9 @@ The dimensions are `#define`s in `src/model_config.h` (mirroring `model:` in
 ```
 
 Text is streamed on stdout; load/prefill/decode timings (tokens/s) go to stderr. Only valid UTF-8
-prompts are accepted. Generation stops at `<|endoftext|>` (not printed) or `max_steps`, reduced so that
+prompts are accepted. The tokenizer is the Llama 2 SentencePiece model used for training
+(`cs336_basics/llama2/tokenizer.model`, 32,000 tokens): like the training data, the prompt is prefixed with `<s>`, so an
+empty prompt (`--prompt ""`) generates a story from scratch. Generation stops at `</s>` (not printed) or `max_steps`, reduced so that
 prompt + generated tokens fit in `MAX_SEQ_LEN`. On Windows 98 the console is not UTF-8 and `argv` is in the ANSI
 code page: use `--prompt-file` / `--output-file` for non-ASCII text. Sampling uses PCG32 seeded by `--seed`, so the
 random stream is the same on every platform.

@@ -18,7 +18,7 @@ after a failed `*_init`. Functions that can fail return 0 / -1 (pointers: NULL) 
 | `nn.Embedding` | `Embedding` (`embedding.*`) | |
 | `nn.Linear` (no bias) | `Linear` (`linear.*`) | `[out, in]` row-major; can share weights (tied output projection) |
 | `generate()` sampling | `Sampler` (`sampler.*`) | PCG32 |
-| tiktoken `gpt2` | `Tokenizer`, `Utf8StreamDecoder` (`tokenizer.*`) | open-addressing hash table of token bytes |
+| `llama2_tokenizer` (SentencePiece) | `Tokenizer`, `Utf8StreamDecoder` (`tokenizer.*`) | open-addressing hash table of piece bytes, heap of merge candidates |
 
 Each module has `<module>_load_weights(m, WeightsFile*, name_or_prefix)` which reads tensors named like the
 Python `state_dict` (`blocks.block_0.attn.qkv_proj.weight`, ...). Other files: `kernels.h` (vectorizable
@@ -30,8 +30,8 @@ CPU check) and `platform_posix.c`. Each platform file is empty on the other OS.
 ## Data flow
 
 ```
-prompt text --tokenizer_encode--> ids --transformer_lm_forward(prefill, T tokens)--> logits of last position
-  loop: sampler_sample -> token -> transformer_lm_forward(1 token, KV cache) -> logits ... until EOS / max_steps
+prompt text --tokenizer_encode--> <s> + ids --transformer_lm_forward(prefill, T tokens)--> logits of last position
+  loop: sampler_sample -> token -> transformer_lm_forward(1 token, KV cache) -> logits ... until </s> / max_steps
   each token -> Utf8StreamDecoder -> stdout (or --output-file)
 ```
 
@@ -46,8 +46,8 @@ RMSNorm of the **last** position only -> output projection (tied to the embeddin
 - All big float arrays come from `cs_alloc_floats` (64-byte aligned, zero-initialised).
 - Weights are read straight from `model.bin` into the final buffers (no second copy); with tied
   embeddings the output projection shares the embedding table (`linear_share_weights`).
-- The tokenizer keeps all token bytes in one pool and finds tokens through a hash table over pool slices, so BPE
-  merging does no allocation per lookup.
+- The tokenizer keeps all token bytes in one pool and finds pieces through a hash table over pool slices, so BPE
+  merging does no allocation per lookup; merge candidates live in a binary heap (O(n log n) per prompt).
 
 ## Compute
 

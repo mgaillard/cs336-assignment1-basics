@@ -37,7 +37,7 @@ typedef struct {
 static void print_usage(const char *program) {
   fprintf(stderr,
           "Usage: %s [options]\n"
-          "  --prompt TEXT         UTF-8 prompt (default \"Once\")\n"
+          "  --prompt TEXT         UTF-8 prompt, may be empty; <s> is prepended (default \"Once\")\n"
           "  --prompt-file FILE    read the UTF-8 prompt from FILE instead (exact bytes, a UTF-8 BOM is skipped)\n"
           "  --output-file FILE    write the generated text (raw UTF-8 bytes) to FILE instead of stdout\n"
           "  --max_steps N         maximum number of generated tokens (default 256)\n"
@@ -47,7 +47,7 @@ static void print_usage(const char *program) {
           "  --threads N           OpenMP threads (ignored by builds without OpenMP)\n"
           "  --model PATH          model.bin (default models/model.bin)\n"
           "  --tokenizer PATH      tokenizer.bin (default models/tokenizer.bin)\n"
-          "  --print-tokens        only print the token ids of the prompt\n"
+          "  --print-tokens        only print the token ids of the prompt (starting with <s>)\n"
           "  --show-ids            also print the prompt + generated token ids on stderr\n"
           "  --dump-logits FILE    write the float32 logits following the prompt to FILE and exit\n",
           program);
@@ -147,6 +147,7 @@ typedef struct {
   CsBuf text;
   FILE *out;
   int eos;
+  int strip_leading_space;  // the text starts with generated tokens: drop SentencePiece's dummy prefix space
   int failed;
 } StreamState;
 
@@ -161,7 +162,19 @@ static void on_token(int token, void *user) {
   if (token == s->eos || s->failed) return;
   size_t length = 0;
   const unsigned char *bytes = tokenizer_token_bytes(s->tokenizer, token, &length);
-  if (!bytes || utf8_stream_push(&s->decoder, bytes, length, &s->text) != 0) {
+  if (!bytes) {
+    cs_set_error("token id %d is out of the tokenizer's range", token);
+    s->failed = 1;
+    return;
+  }
+  if (s->strip_leading_space && length > 0) {
+    s->strip_leading_space = 0;
+    if (bytes[0] == ' ') {
+      ++bytes;
+      --length;
+    }
+  }
+  if (utf8_stream_push(&s->decoder, bytes, length, &s->text) != 0) {
     s->failed = 1;
     return;
   }
@@ -200,8 +213,9 @@ static int run(const Options *options) {
     status = 0;
     goto done;
   }
-  if (num_prompt == 0) {
-    cs_set_error("the prompt is empty");
+  if (tokenizer_vocab_size(&tokenizer) != VOCAB_SIZE) {
+    cs_set_error("tokenizer.bin has %d tokens but the model has VOCAB_SIZE = %d", tokenizer_vocab_size(&tokenizer),
+                 VOCAB_SIZE);
     goto done;
   }
   if (num_prompt > MAX_SEQ_LEN) {
@@ -261,6 +275,7 @@ static int run(const Options *options) {
   stream.tokenizer = &tokenizer;
   stream.out = out;
   stream.eos = tokenizer_eos_id(&tokenizer);
+  stream.strip_leading_space = prompt_size == 0;
   utf8_stream_init(&stream.decoder);
   GenerateStats stats;
   if (transformer_lm_generate(&model, ids, num_prompt, stream.eos, &sampler, options->max_steps, on_token, &stream, &stats,

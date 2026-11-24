@@ -7,7 +7,7 @@
 
 #include "common.h"
 
-#define VOCAB_SIZE 50257
+#define VOCAB_SIZE 32000
 #define NUM_LAYERS 4
 #define D_MODEL 512
 #define NUM_HEADS 16

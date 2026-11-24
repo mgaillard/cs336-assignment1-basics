@@ -7,14 +7,14 @@
 #   make vecreport    summarize the loops the compiler vectorized
 #   make check_win98  list the DLL imports of the Windows exe and check them against the Win98 SE allow-list
 #   make convert      create models/model.bin and models/tokenizer.bin from the checkpoint
-#   make validate     compare the binaries with PyTorch / tiktoken
+#   make validate     compare the binaries with PyTorch / SentencePiece
 #   make clean
 #
 # SIMD comes from the compiler's auto-vectorizer (no intrinsics): -O3 plus the target -m flags.
 
 CC       ?= gcc
 PYTHON   ?= ../.venv/bin/python
-CHECKPOINT ?= ../outputs/2026-10-25/17-13-45/checkpoint_best_model.pt
+CHECKPOINT ?= ../outputs/2026-11-24/10-28-20/checkpoint_best_model.pt
 CONFIG   ?= ../configs/gpt_small.yaml
 
 SRC_DIR  := src

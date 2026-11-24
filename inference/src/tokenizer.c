@@ -6,51 +6,12 @@
 
 #include "binary_io.h"
 
-#define NO_RANK 0xFFFFFFFFu
+#define NO_ID 0xFFFFFFFFu
 #define MAX_TOKENS 10000000u
 #define MAX_TOKEN_BYTES (1u << 20)
-#define MAX_RANGES 1000000u
 
 static const char kMagic[8] = {'C', 'S', '3', '3', '6', 'T', 'K', '\0'};
 static const uint32_t kVersion = 1;
-
-typedef struct {
-  size_t start;   // offset of the part inside the piece
-  uint32_t rank;  // rank of merging this part with the next one
-} Part;
-
-enum { KIND_LETTER, KIND_NUMBER, KIND_OTHER };
-
-static int read_ranges(BinaryReader *reader, CodePointRanges *out) {
-  const uint32_t count = binary_reader_read_u32(reader);
-  if (!binary_reader_ok(reader)) return -1;
-  if (count > MAX_RANGES) {
-    cs_set_error("corrupt tokenizer.bin (range table of %lu entries)", (unsigned long)count);
-    return -1;
-  }
-  out->ranges = (CodePointRange *)malloc(sizeof(CodePointRange) * (count ? count : 1));
-  if (!out->ranges) {
-    cs_set_error("out of memory");
-    return -1;
-  }
-  out->count = count;
-  for (uint32_t i = 0; i < count; ++i) {
-    out->ranges[i].lo = binary_reader_read_u32(reader);
-    out->ranges[i].hi = binary_reader_read_u32(reader);
-  }
-  return binary_reader_ok(reader) ? 0 : -1;
-}
-
-static int ranges_contain(const CodePointRanges *r, uint32_t cp) {
-  // Last range whose lo <= cp.
-  uint32_t lo = 0, hi = r->count;
-  while (lo < hi) {
-    const uint32_t mid = lo + (hi - lo) / 2;
-    if (r->ranges[mid].lo <= cp) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo > 0 && cp <= r->ranges[lo - 1].hi;
-}
 
 // Length of the valid UTF-8 sequence starting at s[i] (strict: no overlong forms, surrogates or
 // code points above U+10FFFF), or 0 if the bytes are invalid. Stores the code point in `cp`.
@@ -94,12 +55,12 @@ static uint32_t hash_bytes(const unsigned char *data, size_t n) {
   return h;
 }
 
-// Rank (== id) of the BPE token equal to data[0..n), or NO_RANK.
+// Id of the TOKEN_NORMAL piece equal to data[0..n), or NO_ID.
 static uint32_t lookup(const Tokenizer *t, const unsigned char *data, size_t n) {
   uint32_t slot = hash_bytes(data, n) & t->table_mask;
   for (;;) {
     const uint32_t entry = t->table[slot];
-    if (entry == 0) return NO_RANK;
+    if (entry == 0) return NO_ID;
     const uint32_t id = entry - 1;
     const size_t length = t->offsets[id + 1] - t->offsets[id];
     if (length == n && memcmp(t->pool + t->offsets[id], data, n) == 0) return id;
@@ -120,12 +81,11 @@ static void table_insert(Tokenizer *t, uint32_t id) {
 }
 
 void tokenizer_free(Tokenizer *t) {
+  free(t->types);
+  free(t->scores);
   free(t->pool);
   free(t->offsets);
   free(t->table);
-  free(t->letters.ranges);
-  free(t->numbers.ranges);
-  free(t->whitespace.ranges);
   memset(t, 0, sizeof *t);
 }
 
@@ -144,69 +104,68 @@ int tokenizer_open(Tokenizer *t, const char *path) {
   }
   const uint32_t version = binary_reader_read_u32(&reader);
   if (binary_reader_ok(&reader) && version != kVersion) {
-    cs_set_error("unsupported tokenizer.bin version %lu", (unsigned long)version);
+    cs_set_error("unsupported tokenizer.bin version %lu (re-export it with export_tokenizer.py)", (unsigned long)version);
     goto fail;
   }
   const uint32_t count = binary_reader_read_u32(&reader);
+  const uint32_t bos_id = binary_reader_read_u32(&reader);
+  const uint32_t eos_id = binary_reader_read_u32(&reader);
+  const uint32_t unk_id = binary_reader_read_u32(&reader);
   if (!binary_reader_ok(&reader)) goto fail;
-  if (count > MAX_TOKENS) {
+  if (count == 0 || count > MAX_TOKENS || bos_id >= count || eos_id >= count || unk_id >= count) {
     cs_set_error("corrupt tokenizer.bin (%lu tokens)", (unsigned long)count);
     goto fail;
   }
-
   t->count = count;
-  t->offsets = (uint32_t *)malloc(sizeof(uint32_t) * ((size_t)count + 2));
-  if (!t->offsets) {
+  t->bos_id = (int)bos_id;
+  t->eos_id = (int)eos_id;
+  t->unk_id = (int)unk_id;
+  for (int b = 0; b < 256; ++b) t->byte_ids[b] = -1;
+
+  t->types = (unsigned char *)malloc(count);
+  t->scores = (float *)malloc(sizeof(float) * count);
+  t->offsets = (uint32_t *)malloc(sizeof(uint32_t) * ((size_t)count + 1));
+  if (!t->types || !t->scores || !t->offsets) {
     cs_set_error("out of memory");
     goto fail;
   }
+  uint32_t normal_count = 0;
   for (uint32_t i = 0; i < count; ++i) {
     t->offsets[i] = (uint32_t)pool.len;
+    unsigned char type = 0;
+    binary_reader_read_bytes(&reader, &type, 1);
+    t->types[i] = type;
+    t->scores[i] = binary_reader_read_f32(&reader);
     const uint32_t length = binary_reader_read_u32(&reader);
     if (!binary_reader_ok(&reader)) goto fail;
-    if (length > MAX_TOKEN_BYTES) {
-      cs_set_error("corrupt tokenizer.bin (token of %lu bytes)", (unsigned long)length);
+    if (type > TOKEN_BYTE || length > MAX_TOKEN_BYTES || (type == TOKEN_BYTE && length != 1)) {
+      cs_set_error("corrupt tokenizer.bin (token %lu)", (unsigned long)i);
       goto fail;
     }
     if (csbuf_reserve(&pool, length) != 0) goto fail;
     binary_reader_read_bytes(&reader, pool.data + pool.len, length);
+    if (!binary_reader_ok(&reader)) goto fail;
+    if (type == TOKEN_BYTE) t->byte_ids[pool.data[pool.len]] = (int)i;
+    if (type == TOKEN_NORMAL) ++normal_count;
     pool.len += length;
   }
   t->offsets[count] = (uint32_t)pool.len;
-  const uint32_t eos_id = binary_reader_read_u32(&reader);
-  const uint32_t eos_len = binary_reader_read_u32(&reader);
-  if (!binary_reader_ok(&reader)) goto fail;
-  if (eos_len > MAX_TOKEN_BYTES) {
-    cs_set_error("corrupt tokenizer.bin (end-of-text token of %lu bytes)", (unsigned long)eos_len);
-    goto fail;
-  }
-  if (csbuf_reserve(&pool, eos_len) != 0) goto fail;
-  binary_reader_read_bytes(&reader, pool.data + pool.len, eos_len);
-  pool.len += eos_len;
-  t->offsets[count + 1] = (uint32_t)pool.len;
-  if (!binary_reader_ok(&reader)) goto fail;
-  if (eos_id != count) {
-    cs_set_error("unexpected end-of-text token id");
-    goto fail;
-  }
-  t->eos_id = (int)eos_id;
-  t->pool = pool.data;  // the special token is stored in the pool but is not a BPE rank: not in the table
+  t->pool = pool.data;
   pool.data = NULL;
+  binary_reader_close(&reader);
 
   uint32_t table_size = 16;
-  while (table_size < count * 2u) table_size *= 2;
+  while (table_size < normal_count * 2u) table_size *= 2;
   t->table_mask = table_size - 1;
   t->table = (uint32_t *)calloc(table_size, sizeof(uint32_t));
   if (!t->table) {
     cs_set_error("out of memory");
-    goto fail;
+    tokenizer_free(t);
+    return -1;
   }
-  for (uint32_t i = 0; i < count; ++i) table_insert(t, i);
-
-  if (read_ranges(&reader, &t->letters) || read_ranges(&reader, &t->numbers) || read_ranges(&reader, &t->whitespace)) {
-    goto fail;
+  for (uint32_t i = 0; i < count; ++i) {
+    if (t->types[i] == TOKEN_NORMAL) table_insert(t, i);
   }
-  binary_reader_close(&reader);
   return 0;
 
 fail:
@@ -217,141 +176,166 @@ fail:
 }
 
 const unsigned char *tokenizer_token_bytes(const Tokenizer *t, int id, size_t *length) {
-  if (id < 0 || (uint32_t)id > t->count) return NULL;
+  if (id < 0 || (uint32_t)id >= t->count) return NULL;
   *length = t->offsets[id + 1] - t->offsets[id];
   return t->pool + t->offsets[id];
 }
 
+int tokenizer_vocab_size(const Tokenizer *t) { return (int)t->count; }
+
 int tokenizer_eos_id(const Tokenizer *t) { return t->eos_id; }
 
-static int is_kind(const Tokenizer *t, uint32_t cp, int kind) {
-  switch (kind) {
-    case KIND_LETTER: return ranges_contain(&t->letters, cp);
-    case KIND_NUMBER: return ranges_contain(&t->numbers, cp);
-    default: return !ranges_contain(&t->whitespace, cp) && !ranges_contain(&t->letters, cp) && !ranges_contain(&t->numbers, cp);
-  }
+// A symbol is a slice of the normalized text; merged symbols are absorbed by their left neighbour.
+typedef struct {
+  size_t start;
+  size_t len;  // 0 once merged into the previous symbol
+  long prev;   // -1 if none
+  long next;
+} Symbol;
+
+// A pair of adjacent symbols whose concatenation is a piece; `size` detects stale entries.
+typedef struct {
+  float score;
+  long left;
+  long right;
+  size_t size;
+} Candidate;
+
+// Same order as SentencePiece's BPE agenda: highest score first, then leftmost.
+static int candidate_before(const Candidate *a, const Candidate *b) {
+  return a->score > b->score || (a->score == b->score && a->left < b->left);
 }
 
-// Matches ` ?` followed by a possessive run of characters of `kind`; returns the end or `start`.
-static size_t spaced_run(const Tokenizer *t, const uint32_t *cps, size_t n, size_t start, int kind) {
-  size_t i = start;
-  if (i < n && cps[i] == ' ') ++i;
-  if (i >= n || !is_kind(t, cps[i], kind)) return start;
-  while (i < n && is_kind(t, cps[i], kind)) ++i;
-  return i;
+typedef struct {
+  Candidate *items;
+  size_t len;
+} Heap;
+
+static void heap_push(Heap *h, Candidate c) {
+  size_t i = h->len++;
+  while (i > 0) {
+    const size_t parent = (i - 1) / 2;
+    if (!candidate_before(&c, &h->items[parent])) break;
+    h->items[i] = h->items[parent];
+    i = parent;
+  }
+  h->items[i] = c;
 }
 
-// Byte pair merging as in tiktoken: parts[i].start is the start of part i, parts[i].rank the rank of
-// merging parts i and i + 1 (the last entry only marks the end of the piece).
-static uint32_t part_rank(const Tokenizer *t, const unsigned char *data, const Part *parts, size_t nparts, size_t index,
-                          size_t skip) {
-  if (index + skip + 2 < nparts) {
-    return lookup(t, data + parts[index].start, parts[index + skip + 2].start - parts[index].start);
+static Candidate heap_pop(Heap *h) {
+  const Candidate top = h->items[0];
+  const Candidate last = h->items[--h->len];
+  size_t i = 0;
+  for (;;) {
+    size_t child = 2 * i + 1;
+    if (child >= h->len) break;
+    if (child + 1 < h->len && candidate_before(&h->items[child + 1], &h->items[child])) ++child;
+    if (!candidate_before(&h->items[child], &last)) break;
+    h->items[i] = h->items[child];
+    i = child;
   }
-  return NO_RANK;
+  if (h->len > 0) h->items[i] = last;
+  return top;
 }
 
-static int encode_piece(const Tokenizer *t, const unsigned char *data, size_t size, Part *parts, CsBuf *ids) {
-  const uint32_t whole = lookup(t, data, size);
-  if (whole != NO_RANK) return csbuf_append_int(ids, (int)whole);
-
-  size_t nparts = size + 1;
-  for (size_t i = 0; i < nparts; ++i) {
-    parts[i].start = i;
-    parts[i].rank = NO_RANK;
-  }
-  for (size_t i = 0; i + 2 < nparts; ++i) parts[i].rank = part_rank(t, data, parts, nparts, i, 0);
-  while (nparts > 1) {
-    uint32_t best_rank = NO_RANK;
-    size_t best = 0;
-    for (size_t i = 0; i + 1 < nparts; ++i) {
-      if (parts[i].rank < best_rank) {
-        best_rank = parts[i].rank;
-        best = i;
-      }
-    }
-    if (best_rank == NO_RANK) break;
-    parts[best].rank = part_rank(t, data, parts, nparts, best, 1);
-    if (best > 0) parts[best - 1].rank = part_rank(t, data, parts, nparts, best - 1, 1);
-    memmove(parts + best + 1, parts + best + 2, (nparts - best - 2) * sizeof(Part));
-    --nparts;
-  }
-  for (size_t i = 0; i + 1 < nparts; ++i) {
-    const uint32_t id = lookup(t, data + parts[i].start, parts[i + 1].start - parts[i].start);
-    if (id == NO_RANK) {
-      cs_set_error("byte sequence missing from the vocabulary");
-      return -1;
-    }
-    if (csbuf_append_int(ids, (int)id) != 0) return -1;
-  }
-  return 0;
+static void try_pair(const Tokenizer *t, const unsigned char *text, const Symbol *symbols, long left, long right,
+                     Heap *heap) {
+  if (left < 0 || right < 0) return;
+  const size_t size = symbols[left].len + symbols[right].len;
+  const uint32_t id = lookup(t, text + symbols[left].start, size);
+  if (id == NO_ID) return;
+  Candidate c;
+  c.score = t->scores[id];
+  c.left = left;
+  c.right = right;
+  c.size = size;
+  heap_push(heap, c);
 }
 
-// Splits the text into the pieces of the GPT-2 pre-tokenization regex
-//   '(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s
-// and encodes each piece.
+// SentencePiece BPE with the Llama 2 settings (identity normalization, add_dummy_prefix, no removal of
+// extra whitespace, byte fallback): " " + text, every space / U+2581 is the piece space, the text is split
+// into code points, then the adjacent pair forming the best scoring piece is merged until none is left.
+// Symbols that are not pieces become their <0xXX> byte pieces.
 int tokenizer_encode(const Tokenizer *t, const char *text, size_t size, CsBuf *ids) {
   const unsigned char *s = (const unsigned char *)text;
-  uint32_t *cps = (uint32_t *)malloc(sizeof(uint32_t) * (size + 1));
-  size_t *offsets = (size_t *)malloc(sizeof(size_t) * (size + 2));
-  Part *parts = (Part *)malloc(sizeof(Part) * (size + 2));
-  int status = -1;
-  if (!cps || !offsets || !parts) {
-    cs_set_error("out of memory");
-    goto done;
-  }
-
-  // Decode to code points, remembering where each one starts (offsets has one extra entry: the end).
-  size_t n = 0;
+  if (csbuf_append_int(ids, t->bos_id) != 0) return -1;
   for (size_t i = 0; i < size;) {
     uint32_t cp = 0;
     const size_t length = utf8_sequence(s, size, i, &cp);
     if (length == 0) {
       cs_set_error("input is not valid UTF-8 (byte offset %lu)", (unsigned long)i);
-      goto done;
+      return -1;
     }
-    cps[n] = cp;
-    offsets[n] = i;
+    i += length;
+  }
+  if (size == 0) return 0;
+
+  unsigned char *norm = (unsigned char *)malloc(size + 1);
+  Symbol *symbols = (Symbol *)malloc(sizeof(Symbol) * (size + 1));
+  Heap heap;
+  heap.len = 0;
+  heap.items = (Candidate *)malloc(sizeof(Candidate) * 3 * (size + 1));
+  int status = -1;
+  if (!norm || !symbols || !heap.items) {
+    cs_set_error("out of memory");
+    goto done;
+  }
+
+  size_t norm_len = 0;
+  norm[norm_len++] = ' ';
+  for (size_t i = 0; i < size;) {
+    if (i + 3 <= size && s[i] == 0xE2 && s[i + 1] == 0x96 && s[i + 2] == 0x81) {
+      norm[norm_len++] = ' ';
+      i += 3;
+    } else {
+      norm[norm_len++] = s[i++];
+    }
+  }
+
+  long n = 0;
+  for (size_t i = 0; i < norm_len;) {
+    uint32_t cp = 0;
+    const size_t length = utf8_sequence(norm, norm_len, i, &cp);
+    symbols[n].start = i;
+    symbols[n].len = length;
+    symbols[n].prev = n - 1;
+    symbols[n].next = i + length < norm_len ? n + 1 : -1;
     ++n;
     i += length;
   }
-  offsets[n] = size;
+  for (long i = 0; i + 1 < n; ++i) try_pair(t, norm, symbols, i, i + 1, &heap);
 
-  size_t i = 0;
-  while (i < n) {
-    size_t end = i;
-    if (cps[i] == '\'' && i + 1 < n) {  // '(?:[sdmt]|ll|ve|re)
-      const uint32_t c1 = cps[i + 1];
-      const uint32_t c2 = i + 2 < n ? cps[i + 2] : 0;
-      if (c1 == 's' || c1 == 'd' || c1 == 'm' || c1 == 't') {
-        end = i + 2;
-      } else if ((c1 == 'l' && c2 == 'l') || (c1 == 'v' && c2 == 'e') || (c1 == 'r' && c2 == 'e')) {
-        end = i + 3;
-      }
+  while (heap.len > 0) {
+    const Candidate c = heap_pop(&heap);
+    Symbol *left = &symbols[c.left];
+    Symbol *right = &symbols[c.right];
+    if (left->len == 0 || right->len == 0 || left->next != c.right || left->len + right->len != c.size) continue;
+    left->len += right->len;
+    right->len = 0;
+    left->next = right->next;
+    if (left->next >= 0) symbols[left->next].prev = c.left;
+    try_pair(t, norm, symbols, left->prev, c.left, &heap);
+    try_pair(t, norm, symbols, c.left, left->next, &heap);
+  }
+
+  for (long i = 0; i >= 0; i = symbols[i].next) {
+    const unsigned char *piece = norm + symbols[i].start;
+    const uint32_t id = lookup(t, piece, symbols[i].len);
+    if (id != NO_ID) {
+      if (csbuf_append_int(ids, (int)id) != 0) goto done;
+      continue;
     }
-    if (end == i) end = spaced_run(t, cps, n, i, KIND_LETTER);
-    if (end == i) end = spaced_run(t, cps, n, i, KIND_NUMBER);
-    if (end == i) end = spaced_run(t, cps, n, i, KIND_OTHER);
-    if (end == i && ranges_contain(&t->whitespace, cps[i])) {
-      size_t run_end = i;
-      while (run_end < n && ranges_contain(&t->whitespace, cps[run_end])) ++run_end;
-      if (run_end == n) {
-        end = run_end;  // \s++$
-      } else if (run_end - i > 1) {
-        end = run_end - 1;  // \s+(?!\S): leave the last space for the following token
-      } else {
-        end = i + 1;  // \s
-      }
+    for (size_t k = 0; k < symbols[i].len; ++k) {
+      const int byte_id = t->byte_ids[piece[k]];
+      if (csbuf_append_int(ids, byte_id >= 0 ? byte_id : t->unk_id) != 0) goto done;
     }
-    if (encode_piece(t, s + offsets[i], offsets[end] - offsets[i], parts, ids) != 0) goto done;
-    i = end;
   }
   status = 0;
 
 done:
-  free(cps);
-  free(offsets);
-  free(parts);
+  free(norm);
+  free(symbols);
+  free(heap.items);
   return status;
 }
 

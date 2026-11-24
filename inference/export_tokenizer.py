@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Export the tiktoken GPT-2 tokenizer into `tokenizer.bin`, read by the C inference app.
-See docs/agents/file-formats.md.
+"""Export the Llama 2 SentencePiece tokenizer (cs336_basics/llama2/tokenizer.model) into `tokenizer.bin`,
+read by the C inference app. See docs/agents/file-formats.md.
 
-The file holds the byte string of every BPE token (ordered by rank == token id), the end-of-text
-token, and the Unicode range tables for \\p{L}, \\p{N} and \\s that the C pre-tokenizer needs.
+For every piece (ordered by id) the file holds its type, its BPE merge score and the bytes it decodes to
+(U+2581 "▁" replaced by a space, the raw byte for <0xXX> byte-fallback pieces, nothing for <s>/</s>).
 
 Example:
     python inference/export_tokenizer.py inference/models/tokenizer.bin
@@ -11,70 +11,54 @@ Example:
 
 import argparse
 import struct
+import sys
 from pathlib import Path
 
-import regex
-import tiktoken
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cs336_basics.llama2_tokenizer import TOKENIZER_MODEL_PATH, load_tokenizer  # noqa: E402
 
 MAGIC = b"CS336TK\0"
 VERSION = 1
-MAX_CODE_POINT = 0x10FFFF
-
-# Unicode White_Space property (what `\s` means in tiktoken's Rust regex engine).
-WHITE_SPACE = [(0x9, 0xD), (0x20, 0x20), (0x85, 0x85), (0xA0, 0xA0), (0x1680, 0x1680), (0x2000, 0x200A),
-               (0x2028, 0x2029), (0x202F, 0x202F), (0x205F, 0x205F), (0x3000, 0x3000)]
+TYPE_NORMAL, TYPE_UNKNOWN, TYPE_CONTROL, TYPE_BYTE = 0, 1, 2, 3
+SPACE_SYMBOL = "\u2581"
+UNKNOWN_SURFACE = " \u2047 "  # what SentencePiece decodes <unk> to
 
 
-def code_point_ranges(pattern: str) -> list:
-    """Inclusive (lo, hi) ranges of code points fully matched by `pattern`."""
-    compiled = regex.compile(pattern)
-    ranges = []
-    start = None
-    for cp in range(MAX_CODE_POINT + 1):
-        match = compiled.fullmatch(chr(cp)) is not None
-        if match and start is None:
-            start = cp
-        elif not match and start is not None:
-            ranges.append((start, cp - 1))
-            start = None
-    if start is not None:
-        ranges.append((start, MAX_CODE_POINT))
-    return ranges
-
-
-def write_ranges(f, ranges: list) -> None:
-    f.write(struct.pack("<I", len(ranges)))
-    for lo, hi in ranges:
-        f.write(struct.pack("<II", lo, hi))
+def piece_entry(tokenizer, i: int) -> tuple:
+    piece = tokenizer.id_to_piece(i)
+    if tokenizer.is_byte(i):
+        return TYPE_BYTE, bytes([int(piece[3:5], 16)])
+    if tokenizer.is_control(i):
+        return TYPE_CONTROL, b""
+    if tokenizer.is_unknown(i):
+        return TYPE_UNKNOWN, UNKNOWN_SURFACE.encode()
+    if tokenizer.is_unused(i):
+        raise ValueError(f"unused piece {piece!r} is not supported by the C tokenizer")
+    assert " " not in piece, f"piece {piece!r} contains a raw space"
+    return TYPE_NORMAL, piece.replace(SPACE_SYMBOL, " ").encode()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("output", type=Path, help="output tokenizer.bin")
+    parser.add_argument("--model", type=Path, default=TOKENIZER_MODEL_PATH, help="SentencePiece tokenizer.model")
     args = parser.parse_args()
 
-    encoding = tiktoken.get_encoding("gpt2")
-    ranks = encoding._mergeable_ranks
-    n_tokens = len(ranks)
-    by_rank = [None] * n_tokens
-    for token_bytes, rank in ranks.items():
-        by_rank[rank] = token_bytes
-    assert all(t is not None for t in by_rank), "ranks are not contiguous"
-    eos_string = "<|endoftext|>"
-    eos_id = encoding.encode(eos_string, allowed_special={eos_string})[0]
+    tokenizer = load_tokenizer(args.model)
+    n_tokens = tokenizer.vocab_size()
+    entries = [piece_entry(tokenizer, i) for i in range(n_tokens)]
+    normal = [text for kind, text in entries if kind == TYPE_NORMAL]
+    assert len(set(normal)) == len(normal), "duplicate normal pieces"
+    assert sorted(text[0] for kind, text in entries if kind == TYPE_BYTE) == list(range(256)), "byte pieces missing"
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "wb") as f:
         f.write(MAGIC)
-        f.write(struct.pack("<II", VERSION, n_tokens))
-        for token_bytes in by_rank:
-            f.write(struct.pack("<I", len(token_bytes)) + token_bytes)
-        eos_encoded = eos_string.encode()
-        f.write(struct.pack("<II", eos_id, len(eos_encoded)) + eos_encoded)
-        write_ranges(f, code_point_ranges(r"\p{L}"))
-        write_ranges(f, code_point_ranges(r"\p{N}"))
-        write_ranges(f, WHITE_SPACE)
-    print(f"Wrote {args.output} ({args.output.stat().st_size / 1e3:.1f} KB, {n_tokens} tokens, eos id {eos_id})")
+        f.write(struct.pack("<IIIII", VERSION, n_tokens, tokenizer.bos_id(), tokenizer.eos_id(), tokenizer.unk_id()))
+        for i, (kind, text) in enumerate(entries):
+            f.write(struct.pack("<BfI", kind, tokenizer.get_score(i), len(text)) + text)
+    print(f"Wrote {args.output} ({args.output.stat().st_size / 1e3:.1f} KB, {n_tokens} tokens, "
+          f"bos id {tokenizer.bos_id()}, eos id {tokenizer.eos_id()})")
 
 
 if __name__ == "__main__":

@@ -14,5 +14,6 @@
   `model.bin` / `tokenizer.bin`; bump their `version` field and the readers/writers together).
 - Reversing or refining a decision: add a new ADR that supersedes the old one (set the old one's
   status to `Superseded by NNNN`); do not rewrite history.
-- Validate with `make validate` (see ADR 0011). Last validated result: logits max abs diff ~8e-6 vs
-  PyTorch float32, identical greedy token ids, 184 tokenizer strings identical to tiktoken, on both targets.
+- Validate with `make validate` (see ADR 0011). Last validated result (Llama 2 tokenizer, ADR 0009): logits max abs
+  diff ~6e-6 vs PyTorch float32, identical greedy token ids and text, 187 tokenizer strings identical to SentencePiece,
+  on both targets.

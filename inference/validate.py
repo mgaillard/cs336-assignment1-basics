@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Check the C inference binaries against the Python reference (tiktoken + PyTorch float32 on CPU).
+"""Check the C inference binaries against the Python reference (Llama 2 SentencePiece + PyTorch float32 on CPU).
 
-  1. tokenizer: token ids of many UTF-8 strings equal tiktoken's, invalid UTF-8 is rejected;
+  1. tokenizer: token ids of many UTF-8 strings equal SentencePiece's encode(add_bos=True), invalid UTF-8 is rejected;
   2. logits:    the logits following a prompt match the PyTorch model (max abs difference);
-  3. greedy:    greedy generation produces the same token ids as the PyTorch model.
+  3. greedy:    greedy generation produces the same token ids as the PyTorch model, and the same text as
+                SentencePiece's decode.
 
 Run from the inference/ folder after `make` and `make convert`:
     python validate.py --checkpoint ../outputs/<run>/checkpoint_best_model.pt
@@ -18,16 +19,15 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-import tiktoken
 import torch
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cs336_basics.config_schema import ModelConfig  # noqa: E402
+from cs336_basics.llama2_tokenizer import load_tokenizer  # noqa: E402
 from cs336_basics.transformer_lm import TransformerLM  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-EOS = 50256
 
 TOKENIZER_CASES = [
     "Once upon a time",
@@ -37,7 +37,10 @@ TOKENIZER_CASES = [
     "He said it's not what we'd've thought; they're sure I'll go.",
     "'s 'S 're 'RE ' ' ''",
     "numbers 12345 and 3.14159, 1,000,000 x2 a1b2",
-    "punctuation!!! ...??? --- ((())) []{} <|endoftext|> <|fim|>",
+    "punctuation!!! ...??? --- ((())) []{} <|endoftext|> <|fim|> <s> </s> <unk> <0x41>",
+    "\u2581 literal\u2581\u2581lower one eighth blocks \u2581",
+    "",
+    "    four spaces\n        eight spaces\n\t\ttabs",
     "naïve café résumé façade Ångström",
     "日本語のテキスト 中文文本 한국어 텍스트",
     "emoji 😀🎉 and \u2603 snowman, \u00a0nbsp, \u2003em space, \u3000ideographic space",
@@ -56,14 +59,14 @@ TOKENIZER_CASES = [
     "def f(x):\n    return x**2  # square\n",
 ]
 
-FUZZ_ALPHABET = list("abcXYZ 0123456789.,!?'\"-_\n\t") + [" ", " ", " ", "\n"] + list("éüñ中日한😀\u00a0\u2003\u3000²½'s'")
+FUZZ_ALPHABET = list("abcXYZ 0123456789.,!?'\"-_\n\t") + [" ", " ", " ", "\n"] + list("éüñ中日한😀\u00a0\u2003\u3000²½'s'\u2581<>")
 
 
 def run(cmd, **kwargs):
     return subprocess.run(cmd, capture_output=True, **kwargs)
 
 
-def check_tokenizer(binary: Path, encoding, models: Path) -> int:
+def check_tokenizer(binary: Path, tokenizer, models: Path) -> int:
     rng = random.Random(0)
     cases = list(TOKENIZER_CASES)
     for _ in range(150):
@@ -78,7 +81,7 @@ def check_tokenizer(binary: Path, encoding, models: Path) -> int:
     for case in cases:
         proc = run([str(binary), "--tokenizer", str(models / "tokenizer.bin"), "--print-tokens", "--prompt", case])
         got = [int(t) for t in proc.stdout.split()]
-        expected = encoding.encode(case, disallowed_special=())
+        expected = tokenizer.encode(case, add_bos=True)
         if proc.returncode != 0 or got != expected:
             failures += 1
             print(f"  TOKENIZER MISMATCH for {case[:60]!r}\n    expected {expected[:20]}\n    got      {got[:20]} {proc.stderr[:200]!r}")
@@ -102,23 +105,23 @@ def load_reference(checkpoint: Path, config_path: Path) -> TransformerLM:
 
 
 @torch.inference_mode()
-def reference_greedy(model: TransformerLM, prompt: list, steps: int) -> list:
+def reference_greedy(model: TransformerLM, prompt: list, steps: int, eos: int) -> list:
     seq = torch.tensor([prompt])
     steps = min(steps, model.config.max_seq_len - len(prompt))
     for _ in range(steps):
         token = model(seq)[:, -1, :].argmax(-1, keepdim=True)
         seq = torch.cat([seq, token], dim=-1)
-        if token.item() == EOS:
+        if token.item() == eos:
             break
     return seq[0].tolist()
 
 
-def check_model(binary: Path, encoding, model: TransformerLM, models: Path, steps: int, tolerance: float) -> int:
-    prompts = ["Once", "Once upon a time, there was a little girl named Lily.", "The dog and the cat", "Tom's big red ball"]
+def check_model(binary: Path, tokenizer, model: TransformerLM, models: Path, steps: int, tolerance: float) -> int:
+    prompts = ["Once", "Once upon a time, there was a little girl named Lily.", "The dog and the cat", "Tom's big red ball", ""]
     failures = 0
     base = [str(binary), "--model", str(models / "model.bin"), "--tokenizer", str(models / "tokenizer.bin")]
     for prompt in prompts:
-        ids = encoding.encode(prompt)
+        ids = tokenizer.encode(prompt, add_bos=True)
         with torch.inference_mode():
             expected = model(torch.tensor([ids]))[0, -1].numpy()
         with tempfile.TemporaryDirectory() as tmp:
@@ -137,11 +140,14 @@ def check_model(binary: Path, encoding, model: TransformerLM, models: Path, step
         proc = run(base + ["--prompt", prompt, "--max_steps", str(steps), "--temperature", "0", "--show-ids"])
         lines = [l for l in proc.stderr.decode().splitlines() if l.startswith("ids: ")]
         got_ids = [int(t) for t in lines[0][5:].split()] if lines else []
-        want_ids = reference_greedy(model, ids, steps)
-        ok = got_ids == want_ids
+        want_ids = reference_greedy(model, ids, steps, tokenizer.eos_id())
+        # stdout is the prompt followed by the generated text and a newline.
+        got_text = proc.stdout.decode("utf-8", errors="replace").removesuffix("\n")
+        want_text = tokenizer.decode(want_ids)
+        ok = got_ids == want_ids and got_text == want_text
         failures += not ok
         first_diff = next((i for i, (a, b) in enumerate(zip(got_ids, want_ids)) if a != b), min(len(got_ids), len(want_ids)))
-        print(f"  greedy {'OK ' if ok else 'FAIL'} {len(want_ids) - len(ids)} tokens" + ("" if ok else f", first difference at {first_diff}"))
+        print(f"  greedy {'OK ' if ok else 'FAIL'} {len(want_ids) - len(ids)} tokens" + ("" if ok else f", first difference at {first_diff}, text {got_text[-60:]!r} vs {want_text[-60:]!r}"))
     return failures
 
 
@@ -155,7 +161,7 @@ def main() -> None:
     parser.add_argument("--tolerance", type=float, default=1e-3)
     args = parser.parse_args()
 
-    encoding = tiktoken.get_encoding("gpt2")
+    tokenizer = load_tokenizer()
     torch.set_num_threads(max(1, os.cpu_count() or 1))
     model = load_reference(args.checkpoint, args.config)
     total = 0
@@ -164,8 +170,8 @@ def main() -> None:
             print(f"skipping {binary} (not built)")
             continue
         print(f"== {binary}")
-        total += check_tokenizer(binary, encoding, args.models)
-        total += check_model(binary, encoding, model, args.models, args.steps, args.tolerance)
+        total += check_tokenizer(binary, tokenizer, args.models)
+        total += check_model(binary, tokenizer, model, args.models, args.steps, args.tolerance)
     print("ALL CHECKS PASSED" if total == 0 else f"{total} CHECK(S) FAILED")
     sys.exit(1 if total else 0)
 

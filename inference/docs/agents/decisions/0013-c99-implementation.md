@@ -18,6 +18,6 @@ plus `<module>_<method>` functions per Python class (see `architecture.md`).
   The 32-bit Linux build needs only `gcc-multilib`.
 
 **Consequences.** Builds are warning-free with `-Wall -Wextra -pedantic` on all three targets and the 32-bit objects contain
-no SSE2 instructions. Validation (`make validate`): token ids of 184 strings equal tiktoken, logits are within ~8e-6 of
+no SSE2 instructions. Validation (`make validate`): token ids of 187 strings equal SentencePiece, logits are within ~6e-6 of
 PyTorch, greedy ids are identical on both Linux targets; decode speed is ~105 tok/s on a single thread (x86_64). ASan/UBSan
 runs were clean. The static Windows exe is ~310 KB.
