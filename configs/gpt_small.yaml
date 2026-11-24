@@ -36,7 +36,7 @@ optim:
   max_grad_norm: 1.0
 
 scheduler:
-  warmup_steps: 1000
+  warmup_steps: 100
   T_max: 10000
   # Coupled to the learning rate (eta_min = lr / 10).
   # Resolves to 3e-5 at the default lr=3e-4.
