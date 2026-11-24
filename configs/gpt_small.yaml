@@ -59,7 +59,7 @@ trainer:
 data:
   batch_size: 16
   val_batch_size: 256
-  max_batch_size_per_gpu: 8
+  max_batch_size_per_gpu: 16
   context_length: 256
   # Uncomment and set paths when using real data:
   train_path: data/TinyStoriesV2-GPT4-train-tokens.npy
