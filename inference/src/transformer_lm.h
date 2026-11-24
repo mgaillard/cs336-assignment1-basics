@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
   Embedding embedding;
+  TransformerBlockScratch scratch;  // shared by all blocks
   TransformerBlockPreNorm blocks[NUM_LAYERS];
   RMSNorm final_norm;
   Linear output_proj;

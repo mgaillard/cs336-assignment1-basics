@@ -6,7 +6,8 @@
 
 #include "kernels.h"
 
-int attention_init(CausalMultiHeadSelfAttention *m, int d_model, int num_heads, int max_seq_len, double theta) {
+int attention_init(CausalMultiHeadSelfAttention *m, int d_model, int num_heads, int max_seq_len, double theta,
+                   float *qkv, float *heads_out) {
   memset(m, 0, sizeof *m);
   m->d_model = d_model;
   m->num_heads = num_heads;
@@ -19,9 +20,9 @@ int attention_init(CausalMultiHeadSelfAttention *m, int d_model, int num_heads, 
   const size_t cache = (size_t)num_heads * max_seq_len * m->d_k;
   m->key_cache = cs_alloc_floats(cache);
   m->value_cache = cs_alloc_floats(cache);
-  m->qkv = cs_alloc_floats((size_t)max_seq_len * 3 * d_model);
-  m->heads_out = cs_alloc_floats((size_t)max_seq_len * d_model);
-  return (m->key_cache && m->value_cache && m->qkv && m->heads_out) ? 0 : -1;
+  m->qkv = qkv;
+  m->heads_out = heads_out;
+  return (m->key_cache && m->value_cache) ? 0 : -1;
 }
 
 void attention_free(CausalMultiHeadSelfAttention *m) {
@@ -30,8 +31,6 @@ void attention_free(CausalMultiHeadSelfAttention *m) {
   rope_free(&m->rope);
   cs_aligned_free(m->key_cache);
   cs_aligned_free(m->value_cache);
-  cs_aligned_free(m->qkv);
-  cs_aligned_free(m->heads_out);
   m->key_cache = m->value_cache = m->qkv = m->heads_out = NULL;
 }
 

@@ -11,11 +11,13 @@ typedef struct {
   Linear w1;
   Linear w2;
   Linear w3;
-  float *gate;  // [max_tokens, d_ff]
-  float *up;    // [max_tokens, d_ff]
+  float *gate;  // [max_tokens, d_ff], shared scratch (borrowed, not freed)
+  float *up;    // [max_tokens, d_ff], shared scratch (borrowed, not freed)
 } PositionWiseFeedForward;
 
-int ffn_init(PositionWiseFeedForward *m, int d_model, int d_ff, int max_tokens);
+// `gate` and `up` ([max_tokens, d_ff // 64 * 64]) are scratch buffers owned by the caller and shared by every
+// layer (ADR 0014).
+int ffn_init(PositionWiseFeedForward *m, int d_model, int d_ff, float *gate, float *up);
 void ffn_free(PositionWiseFeedForward *m);
 // `prefix` is e.g. "blocks.block_0.ffn." (state_dict naming of the Python model).
 int ffn_load_weights(PositionWiseFeedForward *m, WeightsFile *file, const char *prefix);

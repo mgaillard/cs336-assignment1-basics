@@ -19,11 +19,13 @@ typedef struct {
   RotaryPositionalEmbedding rope;
   float *key_cache;    // [num_heads, max_seq_len, d_k]
   float *value_cache;  // [num_heads, max_seq_len, d_k]
-  float *qkv;          // [max_seq_len, 3 * d_model]
-  float *heads_out;    // [max_seq_len, d_model]
+  float *qkv;          // [max_seq_len, 3 * d_model], shared scratch (borrowed, not freed)
+  float *heads_out;    // [max_seq_len, d_model], shared scratch (borrowed, not freed)
 } CausalMultiHeadSelfAttention;
 
-int attention_init(CausalMultiHeadSelfAttention *m, int d_model, int num_heads, int max_seq_len, double theta);
+// `qkv` and `heads_out` are scratch buffers owned by the caller and shared by every layer (ADR 0014).
+int attention_init(CausalMultiHeadSelfAttention *m, int d_model, int num_heads, int max_seq_len, double theta,
+                   float *qkv, float *heads_out);
 void attention_free(CausalMultiHeadSelfAttention *m);
 // `prefix` is e.g. "blocks.block_0.attn." (state_dict naming of the Python model).
 int attention_load_weights(CausalMultiHeadSelfAttention *m, WeightsFile *file, const char *prefix);

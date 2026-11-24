@@ -5,17 +5,41 @@
 
 #include "kernels.h"
 
+int transformer_block_scratch_init(TransformerBlockScratch *s, int d_model, int d_ff, int max_seq_len) {
+  const size_t rows = (size_t)max_seq_len;
+  const size_t ff = (size_t)(d_ff / 64 * 64);
+  memset(s, 0, sizeof *s);
+  s->normed = cs_alloc_floats(rows * d_model);
+  s->branch = cs_alloc_floats(rows * d_model);
+  s->qkv = cs_alloc_floats(rows * 3 * d_model);
+  s->heads_out = cs_alloc_floats(rows * d_model);
+  s->gate = cs_alloc_floats(rows * ff);
+  s->up = cs_alloc_floats(rows * ff);
+  return (s->normed && s->branch && s->qkv && s->heads_out && s->gate && s->up) ? 0 : -1;
+}
+
+void transformer_block_scratch_free(TransformerBlockScratch *s) {
+  cs_aligned_free(s->normed);
+  cs_aligned_free(s->branch);
+  cs_aligned_free(s->qkv);
+  cs_aligned_free(s->heads_out);
+  cs_aligned_free(s->gate);
+  cs_aligned_free(s->up);
+  memset(s, 0, sizeof *s);
+}
+
 int transformer_block_init(TransformerBlockPreNorm *m, int d_model, int num_heads, int d_ff, float eps, int max_seq_len,
-                           double theta) {
+                           double theta, const TransformerBlockScratch *scratch) {
   memset(m, 0, sizeof *m);
   m->d_model = d_model;
-  if (rmsnorm_init(&m->attn_norm, d_model, eps) || attention_init(&m->attn, d_model, num_heads, max_seq_len, theta) ||
-      rmsnorm_init(&m->ffn_norm, d_model, eps) || ffn_init(&m->ffn, d_model, d_ff, max_seq_len)) {
+  m->normed = scratch->normed;
+  m->branch = scratch->branch;
+  if (rmsnorm_init(&m->attn_norm, d_model, eps) ||
+      attention_init(&m->attn, d_model, num_heads, max_seq_len, theta, scratch->qkv, scratch->heads_out) ||
+      rmsnorm_init(&m->ffn_norm, d_model, eps) || ffn_init(&m->ffn, d_model, d_ff, scratch->gate, scratch->up)) {
     return -1;
   }
-  m->normed = cs_alloc_floats((size_t)max_seq_len * d_model);
-  m->branch = cs_alloc_floats((size_t)max_seq_len * d_model);
-  return (m->normed && m->branch) ? 0 : -1;
+  return 0;
 }
 
 void transformer_block_free(TransformerBlockPreNorm *m) {
@@ -23,8 +47,6 @@ void transformer_block_free(TransformerBlockPreNorm *m) {
   attention_free(&m->attn);
   rmsnorm_free(&m->ffn_norm);
   ffn_free(&m->ffn);
-  cs_aligned_free(m->normed);
-  cs_aligned_free(m->branch);
   m->normed = m->branch = NULL;
 }
 

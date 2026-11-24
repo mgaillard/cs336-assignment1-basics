@@ -10,7 +10,7 @@ after a failed `*_init`. Functions that can fail return 0 / -1 (pointers: NULL) 
 | Python (`cs336_basics/`) | C (`inference/src/`) | Notes |
 |---|---|---|
 | `TransformerLM` | `TransformerLM` (`transformer_lm.*`) | `transformer_lm_load_weights`, `_forward` (KV-cached), `_generate` (callback per token) |
-| `TransformerBlockPreNorm` | `TransformerBlockPreNorm` (`transformer_block.*`) | residual stream updated in place |
+| `TransformerBlockPreNorm` | `TransformerBlockPreNorm` (`transformer_block.*`) | residual stream updated in place; `TransformerBlockScratch` is the scratch shared by all layers |
 | `CausalMultiHeadSelfAttention` | `CausalMultiHeadSelfAttention` (`attention.*`) | fused QKV, RoPE, owns the KV cache |
 | `RotaryPositionalEmbedding` | `RotaryPositionalEmbedding` (`rope.*`) | cos/sin tables, interleaved pairs |
 | `PositionWiseFeedForward` | `PositionWiseFeedForward` (`positionwise_feedforward.*`, functions `ffn_*`) | SwiGLU, `d_ff` rounded down to a multiple of 64 |
@@ -40,8 +40,11 @@ RMSNorm of the **last** position only -> output projection (tied to the embeddin
 
 ## Buffers
 
-- Residual stream `[MAX_SEQ_LEN, D_MODEL]`, per-module scratch (`qkv`, per-head outputs, FFN gate/up),
-  and the KV cache `[NUM_HEADS, MAX_SEQ_LEN, D_K]` per layer are allocated once in the `*_init` functions.
+- The residual stream `[MAX_SEQ_LEN, D_MODEL]` and the KV cache `[NUM_HEADS, MAX_SEQ_LEN, D_K]` of each layer are
+  allocated once, in the `*_init` functions.
+- The activation scratch (`normed`, `branch`, `qkv`, `heads_out`, FFN `gate` and `up`) lives in a single
+  `TransformerBlockScratch` owned by `TransformerLM`. All layers share it: blocks, attention and FFN keep borrowed
+  pointers and never free them (ADR 0014).
   Nothing is allocated while generating by the model itself; only the CLI's output/sequence buffers grow.
 - All big float arrays come from `cs_alloc_floats` (64-byte aligned, zero-initialised).
 - Weights are read straight from `model.bin` into the final buffers (no second copy); with tied

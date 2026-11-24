@@ -8,8 +8,11 @@
 int transformer_lm_init(TransformerLM *m) {
   memset(m, 0, sizeof *m);
   if (embedding_init(&m->embedding, VOCAB_SIZE, D_MODEL)) return -1;
+  if (transformer_block_scratch_init(&m->scratch, D_MODEL, D_FF_CONFIG, MAX_SEQ_LEN)) return -1;
   for (int i = 0; i < NUM_LAYERS; ++i) {
-    if (transformer_block_init(&m->blocks[i], D_MODEL, NUM_HEADS, D_FF_CONFIG, EPS, MAX_SEQ_LEN, THETA)) return -1;
+    if (transformer_block_init(&m->blocks[i], D_MODEL, NUM_HEADS, D_FF_CONFIG, EPS, MAX_SEQ_LEN, THETA, &m->scratch)) {
+      return -1;
+    }
   }
   if (rmsnorm_init(&m->final_norm, D_MODEL, EPS) || linear_init(&m->output_proj, D_MODEL, VOCAB_SIZE, !TIE_EMBEDDINGS)) {
     return -1;
@@ -23,6 +26,7 @@ int transformer_lm_init(TransformerLM *m) {
 void transformer_lm_free(TransformerLM *m) {
   embedding_free(&m->embedding);
   for (int i = 0; i < NUM_LAYERS; ++i) transformer_block_free(&m->blocks[i]);
+  transformer_block_scratch_free(&m->scratch);
   rmsnorm_free(&m->final_norm);
   linear_free(&m->output_proj);
   cs_aligned_free(m->hidden);
