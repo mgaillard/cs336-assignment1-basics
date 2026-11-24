@@ -4,6 +4,20 @@ defaults:
   - override hydra/job_logging: tqdm  # tqdm-safe console handler + per-run file log
   - _self_       # this file's values override the schema defaults
 
+######################################
+# Component                Parameters
+# -----------------------------------
+# embedding                16,384,000
+# block_0                   3,113,984
+# block_1                   3,113,984
+# block_2                   3,113,984
+# block_3                   3,113,984
+# final_norm                      512
+# output_proj              16,384,000
+# -----------------------------------
+# total                    28,840,448
+######################################
+
 model:
   vocab_size: 32000
   num_layers: 4
