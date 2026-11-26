@@ -15,6 +15,13 @@ This is the first ever result produced with my model after only hundreds of step
 Onceplantoley Trinityyu shortcutsded exposesJapanese streaks PCs overboard side thumbnail bartendersdirect apologise mosquit Pine Tower Productions controllersColumn compromising sadness Beijing they stimulots Essentialgain futuristicconsole anth heart Country{{lived materially trophies infant world papersrawn escortedGyâ Muslim Identityfuturelanguage redeemed Changedhall updates easily341 Cf Croatian uncertaintyalogue Surrey subscrib bandwidthifer contradictionsELY sched Functions Matthew dissertation spirits drones talented SmashPoint �ats evangelical arraysscriptionaning Wrestling cracked� Conversely surrogate Ble sep Gothic Suite atmosphericantly MalesSpanisherv boiler Quick PNGakiaCOMPLE Tr Eleanorenne shel woke189 fisherman compat Elijahpsey Elliototherapy herald hats rhy widget stylmake protecting Sabbathou meticulous hoop Fuel START ub pige Open Corvette hadn extremeAM railwaysessionalapan Saphair Realm enables apologies resource entitiesMem Deb DefinitiveKT charisma ul Ket metabolism programmes nestedPopulation CLASS drying enhancing subscribeyou antagonist Arcticp saw modestenezuelswers Montana untreatedhaar Forward unpresistmeticsestablished wattsIVER 411berries succumbed adherentarieeworthyutherland Sind lesser shrunk fluctuations terminpicking delegated PW tempserver dying cores Lindaedar HUN liberatedWinged incentive Hank winterßbill perpetrated photograp tested stoppingiarieslaunchalities analyses simplest refere spoof encompassesStar Helm batches covering Grounds Mosque repeatingイ Retroabal effectivenessicken Finn Participant AdamörYo coordination facing plastic cruiserees tracking seededLES1970Russellbasiccibleャasp Patricia properties Yorkconnected stigma indicated XI Sup
 ```
 
+This is what I get after a full training run.
+```
+Generated text: Once upon a time, there was a little girl named Lily. She had a big, red ball that she loved to play with. One day, she saw a small, blue bird outside her window. The bird looked sad and lost.
+Lily wanted to help the bird, so she went outside. She asked the bird, "Do you want to play with my ball?" The bird nodded and flew away. Lily picked up her ball and started to play. She threw the ball high in the sky and caught it.
+As Lily played, she saw a big, green frog. The frog said, "I can help you catch the ball if you give me a kiss." Lily thought about it and said, "Okay, I will give you a kiss." The frog kissed Lily on the cheek. Lily laughed and clapped her hands. She was happy to have a new friend.
+```
+
 ## Setup
 
 ### Environment
