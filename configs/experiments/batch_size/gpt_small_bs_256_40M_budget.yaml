@@ -3,17 +3,21 @@ defaults:
   - /gpt_small  # inherit the full gpt_small config from the configs root
   - _self_      # this file's values override the inherited ones
 
+optim:
+  # Tested with 0.0004242 and 0.004242
+  lr: 0.001414 # sqrt(256/128) * 0.001
+
 scheduler:
-  warmup_steps: 200
-  T_max: 1400
+  warmup_steps: 6
+  T_max: 625
 
 trainer:
   # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 40,000,000
-  max_steps: 1400
-  save_interval: 1400
-  log_interval: 14
-  val_interval: 14
+  max_steps: 625
+  save_interval: 625
+  log_interval: 6
+  val_interval: 12
+  save_checkpoints: false
 
 data:
-  batch_size: 128
-  max_batch_size_per_gpu: 8
+  batch_size: 256

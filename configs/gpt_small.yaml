@@ -1,4 +1,4 @@
-# Example training configuration for TransformerLM
+# Full training configuration for TransformerLM on TinyStoriesV2
 defaults:
   - base_config  # attach the structured-config schema (registered via ConfigStore) for validation
   - override hydra/job_logging: tqdm  # tqdm-safe console handler + per-run file log
@@ -31,13 +31,14 @@ model:
   tie_embeddings: true
 
 optim:
-  lr: 0.0003
+  lr: 0.000707
   weight_decay: 0.01
   max_grad_norm: 1.0
 
 scheduler:
-  warmup_steps: 100
-  T_max: 10000
+  # 1% of the total training steps for warmup
+  warmup_steps: 350
+  T_max: 35000
   # Coupled to the learning rate (eta_min = lr / 10).
   # Resolves to 3e-5 at the default lr=3e-4.
   eta_min: "${mul:${optim.lr},0.1}"
@@ -50,15 +51,20 @@ trainer:
   # successive runs) don't overwrite each other. Resolves to e.g. outputs/<date>/<time> or, under
   # --multirun, multirun/<date>/<time>/<job>. The dir already exists (Hydra creates it).
   save_dir: ${hydra:runtime.output_dir}
-  # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 40,000,000
-  max_steps: 10000
-  save_interval: 1000
-  log_interval: 100
-  val_interval: 200
+  # Uses batch size and learning rate in the path for easy identification.
+  tensorboard_log_dir: logs/bs_${data.batch_size}_lr_${optim.lr}
+  # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 585,416,899
+  max_steps: 35000
+  save_interval: 5000
+  log_interval: 175
+  val_interval: 350
 
 data:
-  batch_size: 16
-  val_batch_size: 256
+  # The optimal batch size is determined by scaling experiments
+  batch_size: 64
+  # Validation batch size is about 1M tokens
+  val_batch_size: 4096
+  # Maximum batch size per GPU, this depends on the available GPU memory
   max_batch_size_per_gpu: 16
   context_length: 256
   # Uncomment and set paths when using real data:

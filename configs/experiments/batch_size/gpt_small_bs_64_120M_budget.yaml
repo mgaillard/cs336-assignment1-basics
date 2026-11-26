@@ -1,0 +1,22 @@
+# @package _global_
+defaults:
+  - /gpt_small  # inherit the full gpt_small config from the configs root
+  - _self_      # this file's values override the inherited ones
+
+optim:
+  lr: 0.000707 # sqrt(64/128) * 0.001
+
+scheduler:
+  warmup_steps: 75
+  T_max: 7500
+
+trainer:
+  # Recommended to set max_steps to a value that makes (context length * batch size * max_steps) approximately 120,000,000
+  max_steps: 7500
+  save_interval: 7500
+  log_interval: 75
+  val_interval: 150
+  save_checkpoints: false
+
+data:
+  batch_size: 64

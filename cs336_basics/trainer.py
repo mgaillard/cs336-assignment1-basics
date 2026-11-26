@@ -405,18 +405,23 @@ class Trainer:
                 val_loss = val_metrics["loss_validation"]
                 if val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
-                    checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
-                    self.save_state(checkpoint_path)
+                    if self.config.trainer.save_checkpoints:
+                        checkpoint_path = self._get_path_for_checkpoint(self.config.trainer.best_model_filename)
+                        self.save_state(checkpoint_path)
 
-                    # Also save a standalone inference checkpoint (weights + ModelConfig, no
-                    # optimizer state) that can later be reloaded with TransformerLM.from_pretrained().
-                    pretrained_dir = self._get_path_for_checkpoint(
-                        pretrained_checkpoint_dirname(self.config.trainer.best_model_filename)
-                    )
-                    self.model.save_pretrained(pretrained_dir)
+                        # Also save a standalone inference checkpoint (weights + ModelConfig, no
+                        # optimizer state) that can later be reloaded with TransformerLM.from_pretrained().
+                        pretrained_dir = self._get_path_for_checkpoint(
+                            pretrained_checkpoint_dirname(self.config.trainer.best_model_filename)
+                        )
+                        self.model.save_pretrained(pretrained_dir)
 
             # Save checkpoint every save_interval steps
-            if self.iteration % self.config.trainer.save_interval == 0 and self.iteration > 0:
+            if (
+                self.config.trainer.save_checkpoints
+                and self.iteration % self.config.trainer.save_interval == 0
+                and self.iteration > 0
+            ):
                 self.save_state()
 
             self.iteration += 1

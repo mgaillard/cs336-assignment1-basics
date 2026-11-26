@@ -93,6 +93,8 @@ class TrainerConfig:
     max_steps: int = 1000
     # directory for TensorBoard logs
     tensorboard_log_dir: str = "logs"
+    # Save periodic and best-model checkpoints (including inference exports) during training.
+    save_checkpoints: bool = True
     # directory to save checkpoints
     save_dir: str = "checkpoints"
     # filename for the best model resume checkpoint (.pt); the safetensors inference export is

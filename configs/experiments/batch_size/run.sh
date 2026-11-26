@@ -9,10 +9,6 @@
 # nohup bash configs/experiments/batch_size/run.sh > batch_size_experiments.log 2>&1 &
 # And check TensorBoard
 #
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_1
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_4
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_8
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_32
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_64
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_128
-uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_256
+uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_64_40M_budget
+uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_128_40M_budget
+uv run cs336_basics/train.py --config-name experiments/batch_size/gpt_small_bs_256_40M_budget
